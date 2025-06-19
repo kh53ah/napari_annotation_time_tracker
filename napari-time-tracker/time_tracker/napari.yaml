@@ -3,7 +3,8 @@ contributions:
   commands:
     - id: napari-time-tracker.shapes_tracking
       title: Track internal time of shape annotation
-      python_name: time_tracker.trigger_shapes:check_tool_type
+      #python_name: time_tracker.shapes_time:start_tracking
+      python_name: time_tracker.trigger_shapes:run
   widgets:
     - command: napari-time-tracker.shapes_tracking
       display_name: test Shape Tracking
