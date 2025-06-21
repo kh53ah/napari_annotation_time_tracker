@@ -2,7 +2,7 @@ import napari
 from napari.layers import Shapes
 from napari.utils.notifications import show_info
 from napari.layers.shapes._shapes_constants import Mode
-
+import time
 from .shapes_time import MouseTracker
 from magicgui import magicgui
 
@@ -11,33 +11,38 @@ class ShapeTimeTracker:
     def __init__(self,v):
         self.viewer = v
         self.tracker = MouseTracker(self.viewer)
-        self._mouse_press_connection = None
-        self._mouse_release_connection = None
-        self._key_press_connection = None
+
+        self._mouse_press_connection_drag = None
+        self._mouse_release_connection_drag = None
+
+        self._mouse_press_connection_click = None
+        self._key_press_connection_click = None
+
+        self._dual_mouse_press_connection = None
+        self._dual_mouse_release_connection = None
+        self._dual_key_press_connection = None
+        self.tracker_running = False
+        self.click_count = 0
 
     def is_valid_shape_layer_selected(self):
-        """Überprüft, ob genau ein Shape-Layer ausgewählt ist"""
         selected = list(self.viewer.layers.selection)
         return len(selected) == 1 and isinstance(selected[0], Shapes)
 
     def check_tool_type_and_connect(self):
         if not self.is_valid_shape_layer_selected():
-            show_info("Kein gültiger Shape-Layer ausgewählt.")
+            show_info("No valid shape layer selected")
             return
 
         shape_layer = list(self.viewer.layers.selection)[0]
         shape_layer_mode = Mode(shape_layer.mode)
-        print("type:", type(shape_layer_mode), "value:", shape_layer_mode)
 
-        match shape_layer_mode:
+        match shape_layer_mode:     #Only track if we use a annotation tool
             case Mode.ADD_ELLIPSE| Mode.ADD_RECTANGLE | Mode.ADD_LINE:
-                show_info("not working")
                 self._connect_drag_and_drop()
             case Mode.ADD_POLYGON | Mode.ADD_POLYLINE:
                 self._connect_click_based()
-            case Mode.ADD_POLYGON_LASSO | Mode.ADD_PATH:     #case polygone_lasso und path benötigen beide funktionen
-                self._connect_drag_and_drop()
-                self._connect_click_based()
+            case Mode.ADD_POLYGON_LASSO | Mode.ADD_PATH:
+                self._connect_dual_with_extension()
             case _:
                 show_info(f"Tool '{shape_layer_mode}' wird nicht unterstützt.")
 
@@ -45,45 +50,109 @@ class ShapeTimeTracker:
     def _connect_drag_and_drop(self):
         canvas = self.viewer.window.qt_viewer.canvas
 
-        if self._mouse_press_connection is None:
-            self._mouse_press_connection = canvas.events.mouse_press.connect(self._on_mouse_press)
+        if self._mouse_press_connection_drag is None:
+            self._mouse_press_connection_drag = canvas.events.mouse_press.connect(self._on_mouse_press)
 
-        if self._mouse_release_connection is None:
-            self._mouse_release_connection = canvas.events.mouse_release.connect(self._on_mouse_release)
+        if self._mouse_release_connection_drag is None:
+            self._mouse_release_connection_drag = canvas.events.mouse_release.connect(self._on_mouse_release)
 
 
     def _connect_click_based(self):
         canvas = self.viewer.window.qt_viewer.canvas
 
-        if self._mouse_press_connection is None:
-            self._mouse_press_connection = canvas.events.mouse_press.connect(self._on_click)
+        if self._mouse_press_connection_click is None:
+            self._mouse_press_connection_click = canvas.events.mouse_press.connect(self._on_click)
 
-        if self._key_press_connection is None:
-            self._key_press_connection = canvas.events.key_press.connect(self._on_key_press)
+        if self._key_press_connection_click is None:
+            self._key_press_connection_click= canvas.events.key_press.connect(self._on_key_press)
 
-        self.tracker_running = False
+
+    def _connect_dual_with_extension(self): #We need this, because lasso and path implements both of the functions above with modifications
+        canvas = self.viewer.window.qt_viewer.canvas
+
+        if self._dual_mouse_press_connection is None:
+            self._dual_mouse_press_connection = canvas.events.mouse_press.connect(self._on_dual_press)
+
+        if self._dual_mouse_release_connection is None:
+            self._dual_mouse_release_connection = canvas.events.mouse_release.connect(self._on_dual_release)
+
+        if self._dual_key_press_connection is None:
+            self._dual_key_press_connection = canvas.events.key_press.connect(self._on_dual_key)
 
 
     def _on_mouse_press(self, event):
-        print("Mouse pressed – starte Timer")
+        print("Mouse pressed – start timetracker")
         self.tracker.start()
 
     def _on_mouse_release(self, event):
-        print("Mouse released – stoppe Timer")
+        print("Mouse released – stop timetracker")
         self.tracker.stop()
+        self.tracker_running = False
+        self.disconnect_all()
 
     def _on_click(self, event):
         if not self.tracker_running:
-            print("Erster Klick – starte Timer")
             self.tracker.start()
             self.tracker_running = True
 
     def _on_key_press(self, event):
-        if event.key == 'Escape' and self.tracker_running:
+        if event.key == 'Escape':
             print("ESC gedrückt – stoppe Timer")
             self.tracker.stop()
             self.tracker_running = False
-            self._mouse_press_connection=None
+            self.disconnect_all()
+
+    def _on_dual_press(self, event):
+        if not self.tracker_running and self.click_count == 0: #first left click starts timer
+            self._press_time = time.time()
+            print("Start Timer")
+            self.tracker.start()
+            self.tracker_running = True
+        elif self.tracker_running and self.click_count == 1: #second left click of click-based tracking shall not start timer again
+            pass
+
+    def _on_dual_release(self, event):
+        if self.tracker_running and self.click_count == 0: #only check this, if its a first click and the timer is running, otherwise
+            release_time = time.time()
+            press_duration = release_time - self._press_time
+            if press_duration >= 0.3:  # z. B. 300 ms
+                print(f"Drag erkannt (Dauer: {press_duration:.3f}s) – stoppe Timer")
+                self.tracker.stop()
+                self.tracker_running = False
+            else:
+                self.click_count = 1
+                print(f"Klick erkannt (Dauer: {press_duration:.3f}s) – Timer läuft weiter")
+        elif self.tracker_running and self.click_count == 1:
+            print("Stop Timer")
+            self.tracker.stop()
+            self.tracker_running = False
+            self.click_count = 0
+            self.disconnect_all()
+
+    def _on_dual_key(self, event):
+        if event.key == 'Escape' and self.tracker_running:
+            print("Escape gedrückt – stoppe Timer")
+            self.tracker.stop()
+            self.tracker_running = False
+            self.click_count = 0
+            self.disconnect_all()
+
+    def _on_dual_right_click(self, event):
+        if event.button == 2 and self.tracker_running:
+            print("Rechte Maustaste gedrückt – stoppe Timer")
+            self.tracker.stop()
+            self.tracker_running = False
+            self.click_count = 0
+            self.disconnect_all()
+
+    def disconnect_all(self):
+        self._mouse_press_connection_drag = None
+        self._mouse_release_connection_drag = None
+        self._mouse_press_connection_click = None
+        self._key_press_connection_click = None
+        self._dual_mouse_press_connection = None
+        self._dual_mouse_release_connection = None
+        self._dual_key_press_connection = None
 
 
 t = None
