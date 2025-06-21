@@ -45,7 +45,7 @@ class MouseTracker:
 
     def stop(self):
         if self._event_connection is not None:
-            self.viewer.canvas.events.mouse_move.disconnect(self._event_connection)
+            self.viewer.window.qt_viewer.canvas.events.mouse_move.disconnect(self._event_connection)
             self._event_connection = None
             print("Mouse-Tracking gestoppt.")
         return self.total_movement_time
