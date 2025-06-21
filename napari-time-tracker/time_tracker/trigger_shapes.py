@@ -44,7 +44,7 @@ class ShapeTimeTracker:
             case Mode.ADD_POLYGON_LASSO | Mode.ADD_PATH:
                 self._connect_dual_with_extension()
             case _:
-                show_info(f"Tool '{shape_layer_mode}' wird nicht unterstützt.")
+                show_info(f"Tool '{shape_layer_mode}' unsupported")
 
 
     def _connect_drag_and_drop(self):
@@ -97,7 +97,7 @@ class ShapeTimeTracker:
 
     def _on_key_press(self, event):
         if event.key == 'Escape':
-            print("ESC gedrückt – stoppe Timer")
+            print("ESC – stop Timer")
             self.tracker.stop()
             self.tracker_running = False
             self.disconnect_all()
@@ -116,12 +116,12 @@ class ShapeTimeTracker:
             release_time = time.time()
             press_duration = release_time - self._press_time
             if press_duration >= 0.3:  # z. B. 300 ms
-                print(f"Drag erkannt (Dauer: {press_duration:.3f}s) – stoppe Timer")
+                print(f"Drag detected (Duration: {press_duration:.3f}s)")
                 self.tracker.stop()
                 self.tracker_running = False
             else:
                 self.click_count = 1
-                print(f"Klick erkannt (Dauer: {press_duration:.3f}s) – Timer läuft weiter")
+                print(f"Click detected (Duration: {press_duration:.3f}s)")
         elif self.tracker_running and self.click_count == 1:
             print("Stop Timer")
             self.tracker.stop()
@@ -131,7 +131,7 @@ class ShapeTimeTracker:
 
     def _on_dual_key(self, event):
         if event.key == 'Escape' and self.tracker_running:
-            print("Escape gedrückt – stoppe Timer")
+            print("Escape – stop Timer")
             self.tracker.stop()
             self.tracker_running = False
             self.click_count = 0
@@ -139,7 +139,7 @@ class ShapeTimeTracker:
 
     def _on_dual_right_click(self, event):
         if event.button == 2 and self.tracker_running:
-            print("Rechte Maustaste gedrückt – stoppe Timer")
+            print("Right click – stop Timer")
             self.tracker.stop()
             self.tracker_running = False
             self.click_count = 0
