@@ -1,4 +1,10 @@
 name: napari-time-tracker
 contributions:
   commands:
+    - id: napari-time-tracker.start_label_time_tracking
+      title: internal-time-tracking-labels
+      python_name: time_tracker.trigger_labels:start_label_time_tracking
   widgets:
+    - command: napari-time-tracker.start_label_time_tracking
+      display_name: "Start Label Time Tracking"
+      autogenerate: true
