@@ -35,6 +35,7 @@ class ShapeTimeTracker:
 
         shape_layer = list(self.viewer.layers.selection)[0]
         shape_layer_mode = Mode(shape_layer.mode)
+        shape_layer.events.mode.connect(self._on_mode_change)
 
         match shape_layer_mode:     #Only track if we use a annotation tool
             case Mode.ADD_ELLIPSE| Mode.ADD_RECTANGLE | Mode.ADD_LINE:
@@ -145,14 +146,45 @@ class ShapeTimeTracker:
             self.click_count = 0
             self.disconnect_all()
 
+    def _on_mode_change(self, event):
+        show_info(f"Tool changed: {list(self.viewer.layers.selection)[0].mode}")
+        self.disconnect_all()
+        self.check_tool_type_and_connect()
+
     def disconnect_all(self):
-        self._mouse_press_connection_drag = None
-        self._mouse_release_connection_drag = None
-        self._mouse_press_connection_click = None
-        self._key_press_connection_click = None
-        self._dual_mouse_press_connection = None
-        self._dual_mouse_release_connection = None
-        self._dual_key_press_connection = None
+        canvas = self.viewer.window.qt_viewer.canvas
+
+        try:
+            if self._mouse_press_connection_drag is not None:
+                canvas.events.mouse_press.disconnect(self._mouse_press_connection_drag)
+                self._mouse_press_connection_drag = None
+
+            if self._mouse_release_connection_drag is not None:
+                canvas.events.mouse_release.disconnect(self._mouse_release_connection_drag)
+                self._mouse_release_connection_drag = None
+
+            if self._mouse_press_connection_click is not None:
+                canvas.events.mouse_press.disconnect(self._mouse_press_connection_click)
+                self._mouse_press_connection_click = None
+
+            if self._key_press_connection_click is not None:
+                canvas.events.key_press.disconnect(self._key_press_connection_click)
+                self._key_press_connection_click = None
+
+            if self._dual_mouse_press_connection is not None:
+                canvas.events.mouse_press.disconnect(self._dual_mouse_press_connection)
+                self._dual_mouse_press_connection = None
+
+            if self._dual_mouse_release_connection is not None:
+                canvas.events.mouse_release.disconnect(self._dual_mouse_release_connection)
+                self._dual_mouse_release_connection = None
+
+            if self._dual_key_press_connection is not None:
+                canvas.events.key_press.disconnect(self._dual_key_press_connection)
+                self._dual_key_press_connection = None
+
+        except Exception as e:
+            print(f"Fehler beim Trennen von Event-Handlern: {e}")
 
 
 t = None
