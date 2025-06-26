@@ -4,6 +4,7 @@ from napari.layers.shapes._shapes_constants import Mode
 import time
 from .mmt import MouseTracker
 
+
 class ShapeTimeTracker:
     def __init__(self, v):
         self.viewer = v
@@ -56,7 +57,8 @@ class ShapeTimeTracker:
         if self._key_press_connection_click is None:
             self._key_press_connection_click = canvas.events.key_press.connect(self._on_key_press)
 
-    def _connect_dual_with_extension(self):  #We need this, because lasso and path implements both of the functions above with modifications
+    def _connect_dual_with_extension(
+            self):  #We need this, because lasso and path implements both of the functions above with modifications
         canvas = self.viewer.window.qt_viewer.canvas
 
         if self._dual_mouse_press_connection is None:
@@ -69,14 +71,16 @@ class ShapeTimeTracker:
             self._dual_key_press_connection = canvas.events.key_press.connect(self._on_dual_key)
 
     def _on_mouse_press(self, event):
-        self.tracker.start()
-        self.tracker_running = True
+        if not self.tracker_running:
+            self.tracker.start()
+            self.tracker_running = True
 
     def _on_mouse_release(self, event):
-        self.timeList.append(self.tracker.total_movement_time)
-        self.tracker.stop()
-        self.tracker_running = False
-        self.disconnect_all()
+        if self.tracker_running:
+            movement_time = self.tracker.stop()
+            self.timeList.append(movement_time)
+            self.tracker_running = False
+            self.disconnect_all()
 
     def _on_click(self, event):
         if not self.tracker_running:
@@ -86,8 +90,8 @@ class ShapeTimeTracker:
     def _on_key_press(self, event):
         if event.key == 'Escape':
             print("ESC – stop Timer")
-            self.timeList.append(self.tracker.total_movement_time)
-            self.tracker.stop()
+            movement_time = self.tracker.stop()
+            self.timeList.append(movement_time)
             self.tracker_running = False
             self.disconnect_all()
 
@@ -106,15 +110,16 @@ class ShapeTimeTracker:
             press_duration = release_time - self._press_time
             if press_duration >= 0.3:  # z. B. 300 ms
                 print(f"Drag detected (Duration: {press_duration:.3f}s)")
-                self.tracker.stop()
+                movement_time = self.tracker.stop()
+                self.timeList.append(movement_time)
                 self.tracker_running = False
             else:
                 self.click_count = 1
                 print(f"Click detected (Duration: {press_duration:.3f}s)")
         elif self.tracker_running and self.click_count == 1:
             print("Stop Timer")
-            self.timeList.append(self.tracker.total_movement_time)
-            self.tracker.stop()
+            movement_time = self.tracker.stop()
+            self.timeList.append(movement_time)
             self.tracker_running = False
             self.click_count = 0
             self.disconnect_all()
@@ -122,8 +127,8 @@ class ShapeTimeTracker:
     def _on_dual_key(self, event):
         if event.key == 'Escape' and self.tracker_running:
             print("Escape – stop Timer")
-            self.timeList.append(self.tracker.total_movement_time)
-            self.tracker.stop()
+            movement_time = self.tracker.stop()
+            self.timeList.append(movement_time)
             self.tracker_running = False
             self.click_count = 0
             self.disconnect_all()
@@ -131,8 +136,8 @@ class ShapeTimeTracker:
     def _on_dual_right_click(self, event):
         if event.button == 2 and self.tracker_running:
             print("Right click – stop Timer")
-            self.timeList.append(self.tracker.total_movement_time)
-            self.tracker.stop()
+            movement_time = self.tracker.stop()
+            self.timeList.append(movement_time)
             self.tracker_running = False
             self.click_count = 0
             self.disconnect_all()

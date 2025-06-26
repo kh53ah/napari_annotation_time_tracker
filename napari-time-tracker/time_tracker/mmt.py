@@ -13,7 +13,7 @@ class MouseTracker:
         self.total_movement_time = 0.0
 
     def _on_mouse_move(self, event):
-        start_time = time.time()  # Direkt am Anfang Zeit abspeichern, weil Python etwas langsam ist und es sonst ungenauer wird
+        start_time = time.time()
 
         # Start Bewegungsphase
         if not self.movement_active:
@@ -42,8 +42,12 @@ class MouseTracker:
             self._event_connection = self.viewer.window.qt_viewer.canvas.events.mouse_move.connect(self._on_mouse_move)
 
     def stop(self):
+        if self.movement_active:
+            self._on_mouse_stop()
         if self._event_connection is not None:
             self.viewer.window.qt_viewer.canvas.events.mouse_move.disconnect(self._event_connection)
             self._event_connection = None
+        result = self.total_movement_time
         self.total_movement_time = 0.0
+        return result
 

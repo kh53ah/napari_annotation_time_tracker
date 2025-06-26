@@ -2,21 +2,14 @@ from magicgui import magicgui
 import napari
 from napari.layers import Shapes, Points, Labels, Image
 from napari.utils.notifications import show_info
-from napari.plugins.hook_specifications import napari_experimental_provide_dock_widget
 from .shapes_time import ShapeTimeTracker
 
+viewer = napari.current_viewer()
+stt = ShapeTimeTracker(viewer)
 
-@magicgui(call_button="Start")
+
+@magicgui
 def run():
-    viewer = napari.current_viewer()
-    stt = ShapeTimeTracker(viewer)
-
-    def on_selection_change(event):
-        selected = list(viewer.layers.selection)
-        if len(selected) != 1:
-            show_info("Select exactly one layer")
-            return
-
     selected = list(viewer.layers.selection)
     if not len(selected) == 1:
         show_info("Selected more than one Layer")
@@ -33,5 +26,3 @@ def run():
     else:
         show_info("Unknown layer type")
         pass
-    viewer.layers.selection.events.changed.connect(on_selection_change)
-
