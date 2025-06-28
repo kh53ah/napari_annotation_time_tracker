@@ -57,8 +57,7 @@ class ShapeTimeTracker:
         if self._key_press_connection_click is None:
             self._key_press_connection_click = canvas.events.key_press.connect(self._on_key_press)
 
-    def _connect_dual_with_extension(
-            self):  #We need this, because lasso and path implements both of the functions above with modifications
+    def _connect_dual_with_extension(self):  #We need this, because lasso and path implements both of the functions above with modifications
         canvas = self.viewer.window.qt_viewer.canvas
 
         if self._dual_mouse_press_connection is None:
@@ -90,7 +89,6 @@ class ShapeTimeTracker:
 
     def _on_key_press(self, event):
         if event.key == 'Escape':
-            print("ESC – stop Timer")
             movement_time = self.tracker.stop()
             self.timeList.append(movement_time)
             self.tracker_running = False
@@ -125,7 +123,6 @@ class ShapeTimeTracker:
 
     def _on_dual_key(self, event):
         if event.key == 'Escape' and self.tracker_running:
-            print("Escape – stop Timer")
             movement_time = self.tracker.stop()
             self.timeList.append(movement_time)
             self.tracker_running = False
@@ -135,7 +132,6 @@ class ShapeTimeTracker:
 
     def _on_dual_right_click(self, event):
         if event.button == 2 and self.tracker_running:
-            print("Right click – stop Timer")
             movement_time = self.tracker.stop()
             self.timeList.append(movement_time)
             self.tracker_running = False
@@ -182,7 +178,7 @@ class ShapeTimeTracker:
                 self._dual_key_press_connection = None
 
         except Exception as e:
-            print(f"event-handler-error: {e}")
+            show_info(f"event-handler-error: {e}")
 
     def return_shape_times(self):
         return self.timeList
