@@ -10,8 +10,9 @@ class TimeTrackerWidget(QWidget):
     def __init__(self, napari_viewer):
         super().__init__()
         self.viewer = napari_viewer
+        self.ptt = None # Bitte None mit Points Class ersetzen
         self.stt = ShapeTimeTracker(self.viewer)
-        # hier bitte eure Classes hinterlegen für points und labels
+        self.ltt = None # Bitte None mit Labels Class ersetzen
 
         layout = QVBoxLayout()
         layout.addWidget(QLabel("Time tracking plugin active"))
@@ -23,16 +24,19 @@ class TimeTrackerWidget(QWidget):
     def _on_selection_change(self, event):
         selected = list(self.viewer.layers.selection)
         if len(selected) != 1:
-            show_info("Select exactly one layer")
+            if len(selected) == 0:
+                print("No layer selected")
+            elif len(selected) > 1:
+                print("Multiple layers selected")
             return
 
         layer = selected[0]
         if isinstance(layer, Shapes):
             self.stt.shape_connect()
         elif isinstance(layer, Points):
-            show_info("Point layer selected – logic not yet implemented")
+            show_info("Point layer selected – logic not yet implemented")   # Hier die class von oben verwenden für Points
         elif isinstance(layer, Labels):
-            show_info("Label layer selected – logic not yet implemented")
+            show_info("Label layer selected – logic not yet implemented")   # Hier die class von oben verwenden für Labels
         elif isinstance(layer, Image):
             show_info("Image layers are not supported")
         else:
