@@ -81,6 +81,7 @@ class ShapeTimeTracker:
             self.timeList.append(movement_time)
             self.tracker_running = False
             self.disconnect_all()
+            self.shape_connect()
 
     def _on_click(self, event):
         if not self.tracker_running:
@@ -94,35 +95,33 @@ class ShapeTimeTracker:
             self.timeList.append(movement_time)
             self.tracker_running = False
             self.disconnect_all()
+            self.shape_connect()
 
     def _on_dual_press(self, event):
-        if not self.tracker_running and self.click_count == 0:  #first left click starts timer
+        if not self.tracker_running and self.click_count == 0:  # first left click starts timer
             self._press_time = time.time()
-            print("Start Timer")
             self.tracker.start()
             self.tracker_running = True
-        elif self.tracker_running and self.click_count == 1:  #second left click of click-based tracking shall not start timer again
-            pass
 
     def _on_dual_release(self, event):
-        if self.tracker_running and self.click_count == 0:  #only check this, if its a first click and the timer is running, otherwise
+        if self.tracker_running and self.click_count == 0:  # first release determines dragAndDrop or click-based
             release_time = time.time()
             press_duration = release_time - self._press_time
-            if press_duration >= 0.3:  # z. B. 300 ms
-                print(f"Drag detected (Duration: {press_duration:.3f}s)")
+            if press_duration >= 0.3:  # drag detected 300 ms
                 movement_time = self.tracker.stop()
                 self.timeList.append(movement_time)
                 self.tracker_running = False
-            else:
+                self.disconnect_all()
+                self.shape_connect()
+            else:   # click detected
                 self.click_count = 1
-                print(f"Click detected (Duration: {press_duration:.3f}s)")
-        elif self.tracker_running and self.click_count == 1:
-            print("Stop Timer")
+        elif self.tracker_running and self.click_count == 1:    # second release stops time for click-based
             movement_time = self.tracker.stop()
             self.timeList.append(movement_time)
             self.tracker_running = False
             self.click_count = 0
             self.disconnect_all()
+            self.shape_connect()
 
     def _on_dual_key(self, event):
         if event.key == 'Escape' and self.tracker_running:
@@ -132,6 +131,7 @@ class ShapeTimeTracker:
             self.tracker_running = False
             self.click_count = 0
             self.disconnect_all()
+            self.shape_connect()
 
     def _on_dual_right_click(self, event):
         if event.button == 2 and self.tracker_running:
@@ -141,9 +141,11 @@ class ShapeTimeTracker:
             self.tracker_running = False
             self.click_count = 0
             self.disconnect_all()
+            self.shape_connect()
 
     def _on_mode_change(self, event):
         show_info(f"Tool changed: {list(self.viewer.layers.selection)[0].mode}")
+        print(self.timeList)
         self.disconnect_all()
         self.shape_connect()
 
