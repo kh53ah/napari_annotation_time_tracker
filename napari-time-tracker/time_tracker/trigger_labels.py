@@ -1,73 +1,105 @@
 import time
 import warnings
-warnings.filterwarnings(
-    "ignore",
-    message="Public access to Window.qt_viewer is deprecated"
-)
-
+from qtpy.QtWidgets import QWidget, QVBoxLayout, QPushButton, QTextEdit
 import napari
+from napari_plugin_engine import napari_hook_implementation
 from napari.layers import Labels
 from napari.layers.labels._labels_constants import Mode
 from napari.utils.notifications import show_info
-from magicgui import magicgui
-from .labels_time import LabelMouseTracker
+from .labels_time import LabelTimeTracker
 
-# utility to get the Napari canvas
-def _get_canvas(viewer):
-     try:
-         return viewer.window.qt_viewer.canvas
-     except AttributeError:
-         return viewer.window._qt_viewer.canvas
 
-# core connector class
-class LabelTimeConnector:
-    def __init__(self, viewer):
-        self.viewer = viewer
-        self.tracker = LabelMouseTracker(viewer)
-        self._press = None
-        self._leave = None
 
-    def start(self):
-        """
-        Hook up mouse press and leave events on the active Labels layer canvas to track time per label.
-        """
-        selected = list(self.viewer.layers.selection)
-        if len(selected) != 1 or not isinstance(selected[0], Labels):
-            show_info("No valid Labels layer selected")
+class AnnotationTimerWidget(QWidget):
+    #dock widget to start/stop timing
+    #Functions: start_tracking:  Wire up mouse events for the active Labels layer.
+    #_on_press: Begin a new stroke timer when pressing down.
+    # _on_release: Stop the stroke timer and update display.
+    #_update_log: Refresh QTextEdit with per-label totals.
+    #_print_report: Show a Napari notification of totals.
+    #return_label_times: Expose raw stroke durations to external code.
+    #return_annotation_data: return List of layer, label_id, time for external code
+    def __init__(self, napari_viewer):
+        super().__init__()
+        self.viewer = napari_viewer
+        self._tracker = LabelTimeTracker()
+        self._press_conn = None
+        self._release_conn = None
+        self._annotation_data = []
+
+        # UI setup
+        layout = QVBoxLayout()
+        self._log = QTextEdit(readOnly=True)
+        layout.addWidget(self._log)
+
+        btn_start = QPushButton("Start Tracking")
+        btn_start.clicked.connect(self._start_tracking)
+        layout.addWidget(btn_start)
+
+        btn_report = QPushButton("Report Times")
+        btn_report.clicked.connect(self._print_report)
+        layout.addWidget(btn_report)
+
+        self.setLayout(layout)
+
+    def _start_tracking(self):
+        # find active Labels layer
+        layer = self.viewer.layers.selection.active
+        if not isinstance(layer, Labels):
+            show_info("Please select a Labels layer to track.")
             return
-        layer = selected[0]
         mode = Mode(layer.mode)
-        # ignore pan/zoom
         if mode == Mode.PAN_ZOOM:
+            show_info("Cannot track in Pan/Zoom mode.")
             return
-        canvas = _get_canvas(self.viewer)
-        # connect press to start tracking
-        self._press = canvas.events.mouse_press.connect(self._on_press)
-        # connect leave to stop tracking
-        self._leave = canvas.events.mouse_leave.connect(self._on_leave)
-        show_info("Label time tracking started")
+        canvas = self.viewer.window.qt_viewer.canvas
+        # connect events
+        if self._press_conn is None:
+            self._press_conn = canvas.events.mouse_press.connect(self._on_press)
+            self._release_conn = canvas.events.mouse_release.connect(self._on_release)
+            show_info("Annotation time tracking started.")
+        else:
+            show_info("Tracking already running.")
 
     def _on_press(self, event):
-        """Start timing when user presses on the canvas."""
         layer = self.viewer.layers.selection.active
-        self.tracker.start(layer.selected_label)
+        tool = layer.selected_tool
+        if tool in ('paintbrush', 'polygon', 'fill', 'eraser'):
+            label_id = layer.selected_label if tool != 'eraser' else event.value
+            self._tracker.start(label_id)
 
-    def _on_leave(self, event):
-        """Stop timing when mouse leaves the canvas."""
-        self.tracker.stop()
-        # disconnect events
-        canvas = _get_canvas(self.viewer)
-        canvas.events.mouse_press.disconnect(self._press)
-        canvas.events.mouse_leave.disconnect(self._leave)
-        self._press = None
-        self._leave = None
+    def _on_release(self, event):
+        elapsed = self._tracker.stop()
+        layer = self.viewer.layers.selection.active
+        label_id = None
+        self.annotation_data.append({
+            'layer': layer,
+            'label_id': label_id,
+            'time': elapsed
+        })
+        # update live log
+        self._update_log()
+        # (External code can fetch individual times via return_times)
 
-@magicgui(call_button="Start Label Time Tracking")
-def start_label_time_tracking():
-    viewer = napari.current_viewer()
-    connector = LabelTimeConnector(viewer)
-    connector.start()
+    def _update_log(self):
+        times = self._tracker.report()
+        lines = [f"Label {lbl}: {t:.2f} s" for lbl, t in sorted(times.items())]
+        self._log.setText("\n".join(lines))
 
-# Napari entrypoint
+    def _print_report(self):
+        times = self._tracker.report()
+        show_info("Times per label: " + str(times))
+
+    def return_annotation_data(self):
+        return list(self._annotation_data)
+
+    def return_label_times(self):
+        """
+        Return the list of individual stroke durations (seconds).
+        """
+        return self._tracker.return_times()
+
+
+@napari_hook_implementation
 def napari_experimental_provide_dock_widget():
-    return start_label_time_tracking
+    return AnnotationTimerWidget
