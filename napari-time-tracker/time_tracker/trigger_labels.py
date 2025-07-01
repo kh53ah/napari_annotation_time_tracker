@@ -25,7 +25,9 @@ class AnnotationTimerWidget(QWidget):
         self._tracker = LabelTimeTracker()
         self._press_conn = None
         self._release_conn = None
-        self._annotation_data = []
+        self._double_press_conn = None
+        self._last_label = None
+        self._time_map = {}
 
         # UI setup
         layout = QVBoxLayout()
@@ -57,6 +59,7 @@ class AnnotationTimerWidget(QWidget):
         if self._press_conn is None:
             self._press_conn = canvas.events.mouse_press.connect(self._on_press)
             self._release_conn = canvas.events.mouse_release.connect(self._on_release)
+            self._double_press_conn = canvas.events.mouse_double_click.connect(self._on_double_click)
             show_info("Annotation time tracking started.")
         else:
             show_info("Tracking already running.")
@@ -64,22 +67,29 @@ class AnnotationTimerWidget(QWidget):
     def _on_press(self, event):
         layer = self.viewer.layers.selection.active
         tool = layer.selected_tool
-        if tool in ('paintbrush', 'polygon', 'fill', 'eraser'):
-            label_id = layer.selected_label if tool != 'eraser' else event.value
+        label_id = layer.selected_label
+        self._tracker.start(label_id)
+        if not self._tracker.active and tool in ('paintbrush', 'fill', 'eraser', 'polygon'):
             self._tracker.start(label_id)
 
     def _on_release(self, event):
-        elapsed = self._tracker.stop()
         layer = self.viewer.layers.selection.active
-        label_id = None
-        self.annotation_data.append({
-            'layer': layer,
-            'label_id': label_id,
-            'time': elapsed
-        })
-        # update live log
-        self._update_log()
-        # (External code can fetch individual times via return_times)
+        tool = layer.selected_tool
+        if tool in ('paintbrush', 'fill', 'eraser') and self._tracker.active:
+            elapsed = self._tracker.stop()
+            self._record_event(self._last_label, elapsed, layer)
+            self._last_label = None
+            self._update_log()
+
+    def _on_double_click(self, event):
+        layer = self.viewer.layers.selection.active
+        tool = layer.selected_tool
+        if tool == 'polygon' and self._tracker.active:
+            elapsed = self._tracker.stop()
+            self._record_event(self._last_label, elapsed, layer)
+            self._last_label = None
+            self._update_log()
+
 
     def _update_log(self):
         times = self._tracker.report()
