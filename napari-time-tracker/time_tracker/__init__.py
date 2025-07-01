@@ -4,6 +4,8 @@ from qtpy.QtWidgets import QWidget, QVBoxLayout, QLabel
 from napari.utils.notifications import show_info
 from napari.layers import Shapes, Points, Labels, Image
 from .shapes_time import ShapeTimeTracker
+
+
 # Hier bitte eure classes importieren
 
 
@@ -34,10 +36,13 @@ class TimeTrackerWidget(QWidget):
         layer = selected[0]
         if isinstance(layer, Shapes):
             self.stt.shape_connect()
+            print(layer.data)
         elif isinstance(layer, Points):
-            show_info("Point layer selected – logic not yet implemented")  # Hier die class von oben verwenden für Points
+            show_info(
+                "Point layer selected – logic not yet implemented")  # Hier die class von oben verwenden für Points
         elif isinstance(layer, Labels):
-            show_info("Label layer selected – logic not yet implemented")  # Hier die class von oben verwenden für Labels
+            show_info(
+                "Label layer selected – logic not yet implemented")  # Hier die class von oben verwenden für Labels
         elif isinstance(layer, Image):
             show_info("Image layers are not supported")
         else:
