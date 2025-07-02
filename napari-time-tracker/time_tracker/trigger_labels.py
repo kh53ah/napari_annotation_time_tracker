@@ -7,6 +7,7 @@ from napari.layers import Labels
 from napari.layers.labels._labels_constants import Mode
 from napari.utils.notifications import show_info
 from .labels_time import LabelTimeTracker
+from napari.layers.labels import Labels
 
 
 
@@ -89,7 +90,9 @@ class AnnotationTimerWidget(QWidget):
             self._record_event(self._last_label, elapsed, layer)
             self._last_label = None
             self._update_log()
-
+    def _store_time(self):
+        key = layer.labels.data
+        self.time_map[key] = self.time_map.get(key, 0.0) + elapsed
 
     def _update_log(self):
         times = self._tracker.report()
@@ -101,13 +104,9 @@ class AnnotationTimerWidget(QWidget):
         show_info("Times per label: " + str(times))
 
     def return_annotation_data(self):
-        return list(self._annotation_data)
+        return self._tracker.report()
 
-    def return_label_times(self):
-        """
-        Return the list of individual stroke durations (seconds).
-        """
-        return self._tracker.return_times()
+
 
 
 @napari_hook_implementation
