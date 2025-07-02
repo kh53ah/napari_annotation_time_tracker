@@ -1,9 +1,5 @@
-import time
-import warnings
 from qtpy.QtWidgets import QWidget, QVBoxLayout, QPushButton, QTextEdit
-import napari
 from napari_plugin_engine import napari_hook_implementation
-from napari.layers import Labels
 from napari.layers.labels._labels_constants import Mode
 from napari.utils.notifications import show_info
 from .labels_time import LabelTimeTracker
@@ -27,7 +23,6 @@ class AnnotationTimerWidget(QWidget):
         self._press_conn = None
         self._release_conn = None
         self._double_press_conn = None
-        self._last_label = None
         self._time_map = {}
 
         # UI setup
@@ -69,7 +64,6 @@ class AnnotationTimerWidget(QWidget):
         layer = self.viewer.layers.selection.active
         tool = layer.selected_tool
         label_id = layer.selected_label
-        self._tracker.start(label_id)
         if not self._tracker.active and tool in ('paintbrush', 'fill', 'eraser', 'polygon'):
             self._tracker.start(label_id)
 
@@ -90,9 +84,6 @@ class AnnotationTimerWidget(QWidget):
             self._record_event(self._last_label, elapsed, layer)
             self._last_label = None
             self._update_log()
-    def _store_time(self):
-        key = layer.labels.data
-        self.time_map[key] = self.time_map.get(key, 0.0) + elapsed
 
     def _update_log(self):
         times = self._tracker.report()
