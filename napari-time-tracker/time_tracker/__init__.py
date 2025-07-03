@@ -4,6 +4,7 @@ from qtpy.QtWidgets import QWidget, QVBoxLayout, QLabel
 from napari.utils.notifications import show_info
 from napari.layers import Shapes, Points, Labels, Image
 from .shapes_time import ShapeTimeTracker
+from .trigger_labels import LabelsStart
 
 
 # Hier bitte eure classes importieren
@@ -15,7 +16,7 @@ class TimeTrackerWidget(QWidget):
         self.viewer = napari_viewer
         self.ptt = None  # Bitte None mit Points Class ersetzen
         self.stt = ShapeTimeTracker(self.viewer)
-        self.ltt = None  # Bitte None mit Labels Class ersetzen
+        self.ltt = LabelsStart(self.viewer)  # Bitte None mit Labels Class ersetzen
 
         layout = QVBoxLayout()
         layout.addWidget(QLabel("Time tracking plugin active"))

@@ -1,10 +1,11 @@
 name: napari-time-tracker
+display_name: Time Tracker
 contributions:
   commands:
-    - id: napari-time-tracker.start_label_time_tracking
-      title: internal-time-tracking-labels
-      python_name: time_tracker.trigger_labels:start_label_time_tracking
+    - id: napari-time-tracker.shapes_tracking
+      title: Track internal time of shape annotation
+      python_name: time_tracker.__init__:TimeTrackerWidget
   widgets:
-    - command: napari-time-tracker.start_label_time_tracking
-      display_name: "Start Label Time Tracking"
-      autogenerate: true
+    - command: napari-time-tracker.shapes_tracking  # note, same as command.id above
+      display_name: TT
+
