@@ -5,7 +5,11 @@ contributions:
     - id: napari-time-tracker.shapes_tracking
       title: Track internal time of shape annotation
       python_name: time_tracker.__init__:TimeTrackerWidget
+    - id: napari-time-tracker.points_tracking
+      title: Track internal time of points annotation
+      python_name: time_tracker.__init__:TimeTrackerWidget
   widgets:
     - command: napari-time-tracker.shapes_tracking  # note, same as command.id above
       display_name: TT
-
+    - command: napari-time-tracker.points_tracking
+      display_name: TT_Points

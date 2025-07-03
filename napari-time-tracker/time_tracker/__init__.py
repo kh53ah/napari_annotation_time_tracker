@@ -14,7 +14,7 @@ class TimeTrackerWidget(QWidget):
     def __init__(self, napari_viewer):
         super().__init__()
         self.viewer = napari_viewer
-        self.ptt = None  # Bitte None mit Points Class ersetzen
+        self.ptt = PointsTimeTracker(self.viewer)
         self.stt = ShapeTimeTracker(self.viewer)
         self.ltt = LabelsStart(self.viewer)  # Bitte None mit Labels Class ersetzen
 
@@ -35,12 +35,17 @@ class TimeTrackerWidget(QWidget):
             return
 
         layer = selected[0]
+        print(f"Selected layer type: {type(layer)}")  # Debug print
+        print(f"Layer name: {layer.name}")  # Debug print
+
         if isinstance(layer, Shapes):
+            print("Connecting shapes tracker")  # Debug print
             self.stt.shape_connect()
             print(layer.data)
         elif isinstance(layer, Points):
-            show_info(
-                "Point layer selected – logic not yet implemented")  # Hier die class von oben verwenden für Points
+            print("Starting points tracker")  # Debug print
+            self.ptt.start()
+            print(layer.data)
         elif isinstance(layer, Labels):
             self.ltt.start() # Hier die class von oben verwenden für Labels
         elif isinstance(layer, Image):
