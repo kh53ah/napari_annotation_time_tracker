@@ -1,14 +1,14 @@
 # time_tracker_widget.py
 
-from qtpy.QtWidgets import QWidget, QVBoxLayout, QLabel
+from qtpy.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton
 from napari.utils.notifications import show_info
 from napari.layers import Shapes, Points, Labels, Image
+from .points_time import PointsTimeTracker
 from .shapes_time import ShapeTimeTracker
 from .trigger_labels import LabelsStart
 
 
-# Hier bitte eure classes importieren
-
+# from .FILENAME import CLASS
 
 class TimeTrackerWidget(QWidget):
     def __init__(self, napari_viewer):
@@ -16,39 +16,56 @@ class TimeTrackerWidget(QWidget):
         self.viewer = napari_viewer
         self.ptt = PointsTimeTracker(self.viewer)
         self.stt = ShapeTimeTracker(self.viewer)
-        self.ltt = LabelsStart(self.viewer)  # Bitte None mit Labels Class ersetzen
+        self.ltt = LabelsStart(self.viewer)
+        self.start_stop_btn = None
 
+        # GUI Layout
         layout = QVBoxLayout()
         layout.addWidget(QLabel("Time tracking plugin active"))
+
+        # Start/Stop Button
+        self.start_stop_btn = QPushButton("Start / Stop")
+        self.start_stop_btn.clicked.connect(self._on_start_stop_clicked)
+        layout.addWidget(self.start_stop_btn)
+
+        # Reset Button
+        self.reset_btn = QPushButton("Reset")
+        self.reset_btn.clicked.connect(self._on_reset_clicked)
+        layout.addWidget(self.reset_btn)
+
         self.setLayout(layout)
 
+        # Connect Layer Selection
         self.viewer.layers.selection.events.changed.connect(self._on_selection_change)
-        self._on_selection_change(None)  # Direkt initialisieren
+        self._on_selection_change(None)
 
     def _on_selection_change(self, event):
         selected = list(self.viewer.layers.selection)
         if len(selected) != 1:
             if len(selected) == 0:
-                print("No layer selected")
+                show_info("No layer selected")
             elif len(selected) > 1:
-                print("Multiple layers selected")
+                show_info("Multiple layers selected")
             return
 
         layer = selected[0]
-        print(f"Selected layer type: {type(layer)}")  # Debug print
-        print(f"Layer name: {layer.name}")  # Debug print
+        show_info(f"Selected layer type: {type(layer)}")
+        show_info(f"Layer name: {layer.name}")
 
         if isinstance(layer, Shapes):
-            print("Connecting shapes tracker")  # Debug print
             self.stt.shape_connect()
-            print(layer.data)
         elif isinstance(layer, Points):
-            print("Starting points tracker")  # Debug print
             self.ptt.start()
-            print(layer.data)
         elif isinstance(layer, Labels):
-            self.ltt.start() # Hier die class von oben verwenden für Labels
+            self.ltt.start()
         elif isinstance(layer, Image):
             show_info("Image layers are not supported")
         else:
             show_info("Unknown layer type")
+
+    def _on_start_stop_clicked(self):
+        #self.start_stop_btn.start()
+        pass
+
+    def _on_reset_clicked(self):  # Insert Reset Methode
+        pass

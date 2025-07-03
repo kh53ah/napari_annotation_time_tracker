@@ -10,19 +10,25 @@ class ShapeTimeTracker:
         self.viewer = v
         self.tracker = MouseTracker(self.viewer)
 
+        # attributs needed for dragAndDrop implementation
         self._mouse_press_connection_drag = None
         self._mouse_release_connection_drag = None
 
+        # attributs needed for click-based implementation
         self._mouse_press_connection_click = None
         self._key_press_connection_click = None
 
+        # attributs needed for dual implementation
         self._dual_mouse_press_connection = None
         self._dual_mouse_release_connection = None
         self._dual_key_press_connection = None
         self.tracker_running = False
         self.click_count = 0
-        self.timeList = []
 
+        # attributs needed for saving time
+        self.timeMap = {}
+
+    # main methode for starting the shape layer tracking
     def shape_connect(self):
 
         shape_layer = list(self.viewer.layers.selection)[0]
@@ -57,7 +63,8 @@ class ShapeTimeTracker:
         if self._key_press_connection_click is None:
             self._key_press_connection_click = canvas.events.key_press.connect(self._on_key_press)
 
-    def _connect_dual_with_extension(self):  #We need this, because lasso and path implements both of the functions above with modifications
+    def _connect_dual_with_extension(
+            self):  #We need this, because lasso and path implements both of the functions above with modifications
         canvas = self.viewer.window.qt_viewer.canvas
 
         if self._dual_mouse_press_connection is None:
@@ -77,7 +84,7 @@ class ShapeTimeTracker:
     def _on_mouse_release(self, event):
         if self.tracker_running:
             movement_time = self.tracker.stop()
-            self.timeList.append(movement_time)
+            self.map_time(movement_time)
             self.tracker_running = False
             self.disconnect_all()
             self.shape_connect()
@@ -90,7 +97,7 @@ class ShapeTimeTracker:
     def _on_key_press(self, event):
         if event.key == 'Escape':
             movement_time = self.tracker.stop()
-            self.timeList.append(movement_time)
+            self.map_time(movement_time)
             self.tracker_running = False
             self.disconnect_all()
             self.shape_connect()
@@ -107,15 +114,15 @@ class ShapeTimeTracker:
             press_duration = release_time - self._press_time
             if press_duration >= 0.3:  # drag detected 300 ms
                 movement_time = self.tracker.stop()
-                self.timeList.append(movement_time)
+                self.map_time(movement_time)
                 self.tracker_running = False
                 self.disconnect_all()
                 self.shape_connect()
-            else:   # click detected
+            else:  # click detected
                 self.click_count = 1
-        elif self.tracker_running and self.click_count == 1:    # second release stops time for click-based
+        elif self.tracker_running and self.click_count == 1:  # second release stops time for click-based
             movement_time = self.tracker.stop()
-            self.timeList.append(movement_time)
+            self.map_time(movement_time)
             self.tracker_running = False
             self.click_count = 0
             self.disconnect_all()
@@ -124,7 +131,7 @@ class ShapeTimeTracker:
     def _on_dual_key(self, event):
         if event.key == 'Escape' and self.tracker_running:
             movement_time = self.tracker.stop()
-            self.timeList.append(movement_time)
+            self.map_time(movement_time)
             self.tracker_running = False
             self.click_count = 0
             self.disconnect_all()
@@ -133,7 +140,7 @@ class ShapeTimeTracker:
     def _on_dual_right_click(self, event):
         if event.button == 2 and self.tracker_running:
             movement_time = self.tracker.stop()
-            self.timeList.append(movement_time)
+            self.map_time(movement_time)
             self.tracker_running = False
             self.click_count = 0
             self.disconnect_all()
@@ -141,7 +148,7 @@ class ShapeTimeTracker:
 
     def _on_mode_change(self, event):
         show_info(f"Tool changed: {list(self.viewer.layers.selection)[0].mode}")
-        print(self.timeList)
+        print(self.timeMap)
         self.disconnect_all()
         self.shape_connect()
 
@@ -180,5 +187,12 @@ class ShapeTimeTracker:
         except Exception as e:
             show_info(f"event-handler-error: {e}")
 
-    def return_shape_times(self):
-        return self.timeList
+    def map_time(self, t):
+        current_layer = list(self.viewer.layers.selection)[0]
+        current_object = current_layer.selected_data
+        tmp = {self.timeMap.get(current_layer): None}
+        if tmp is None:
+            self.timeMap[current_layer] = {}
+        tmp.update({current_object: t})
+        self.timeMap.update({current_layer: tmp})
+        print(self.timeMap)
