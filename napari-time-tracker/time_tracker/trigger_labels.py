@@ -25,21 +25,6 @@ class AnnotationTimerWidget(QWidget):
         self._double_press_conn = None
         self._time_map = {}
 
-        # UI setup
-        layout = QVBoxLayout()
-        self._log = QTextEdit(readOnly=True)
-        layout.addWidget(self._log)
-
-        btn_start = QPushButton("Start Tracking")
-        btn_start.clicked.connect(self._start_tracking)
-        layout.addWidget(btn_start)
-
-        btn_report = QPushButton("Report Times")
-        btn_report.clicked.connect(self._print_report)
-        layout.addWidget(btn_report)
-
-        self.setLayout(layout)
-
     def _start_tracking(self):
         # find active Labels layer
         layer = self.viewer.layers.selection.active
