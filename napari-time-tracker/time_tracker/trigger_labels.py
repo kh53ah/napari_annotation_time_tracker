@@ -57,9 +57,7 @@ class AnnotationTimerWidget(QWidget):
         tool = layer.selected_tool
         if tool in ('paintbrush', 'fill', 'eraser') and self._tracker.active:
             elapsed = self._tracker.stop()
-            self._record_event(self._last_label, elapsed, layer)
-            self._last_label = None
-            self._update_log()
+            show_info(f"Label {layer.selected_label}: +{elapsed:.2f}s (total {self._tracker.report()[layer.selected_label]:.2f}s)")
 
     def _on_double_click(self, event):
         layer = self.viewer.layers.selection.active
