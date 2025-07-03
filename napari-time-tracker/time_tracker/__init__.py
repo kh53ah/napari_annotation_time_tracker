@@ -41,8 +41,7 @@ class TimeTrackerWidget(QWidget):
             show_info(
                 "Point layer selected – logic not yet implemented")  # Hier die class von oben verwenden für Points
         elif isinstance(layer, Labels):
-            show_info(
-                "Label layer selected – logic not yet implemented")  # Hier die class von oben verwenden für Labels
+            self.ltt.start() # Hier die class von oben verwenden für Labels
         elif isinstance(layer, Image):
             show_info("Image layers are not supported")
         else:
