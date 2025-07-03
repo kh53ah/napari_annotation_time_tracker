@@ -76,9 +76,6 @@ class LabelsStart(QObject):
             self._stop_and_print()
 
     def _on_double_click(self, event):
-        """
-        Handle mouse double-click: stop timing for polygon tool.
-        """
         if not self._tracker.active:
             return
         layer = self.viewer.layers.selection.active
