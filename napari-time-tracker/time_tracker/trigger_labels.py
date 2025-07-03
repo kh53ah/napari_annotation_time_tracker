@@ -1,27 +1,19 @@
-from PyQt5.QtCore import QObject
-from napari.layers.labels._labels_constants import Mode
+from qtpy.QtCore import QObject
 from napari.utils.notifications import show_info
-from .labels_time import LabelTimeTracker
+from napari.layers.labels._labels_constants import Mode
 from napari.layers.labels import Labels
 
-
+from .labels_time import LabelTimeTracker
 
 class LabelsStart(QObject):
-    #dock widget to start/stop timing
-    #Functions: start_tracking:  Wire up mouse events for the active Labels layer.
-    #_on_press: Begin a new stroke timer when pressing down.
-    # _on_release: Stop the stroke timer and update display.
-    #_update_log: Refresh QTextEdit with per-label totals.
-    #_print_report: Show a Napari notification of totals.
-    #return_label_times: Expose raw stroke durations to external code.
-    #return_annotation_data: return List of layer, label_id, time for external code
-    def __init__(self, napari_viewer):
+    def __init__(self, viewer):
         super().__init__()
-        self.viewer = napari_viewer
+        self.viewer = viewer
         self._tracker = LabelTimeTracker()
         self._press_conn = None
         self._release_conn = None
-        self._double_press_conn = None
+        self._double_conn = None
+        self._mode_conn = None
         self._last_label = None
 
     def start(self):
@@ -29,49 +21,77 @@ class LabelsStart(QObject):
         if not isinstance(layer, Labels):
             show_info("Please select a Labels layer to track.")
             return
-        if Mode(layer.mode) == Mode.PAN_ZOOM:
-            show_info("Cannot track in Pan/Zoom mode.")
-            return
+        if self._mode_conn is None:
+            self._mode_conn = layer.events.mode.connect(self._on_mode_change)
+        self._attach_handlers()
+
+        show_info("Label time tracking started. Switch to an annotation tool to begin timing.")
+
+    def _attach_handlers(self):
         canvas = self.viewer.window.qt_viewer.canvas
         if self._press_conn is None:
             self._press_conn = canvas.events.mouse_press.connect(self._on_press)
+        if self._release_conn is None:
             self._release_conn = canvas.events.mouse_release.connect(self._on_release)
+        if self._double_conn is None:
             self._double_conn = canvas.events.mouse_double_click.connect(self._on_double_click)
-            show_info("Label time tracking started.")
-        else:
-            show_info("Label tracking already running.")
 
+    def _disconnect_handlers(self):
+        canvas = self.viewer.window.qt_viewer.canvas
+        try:
+            if self._press_conn:
+                canvas.events.mouse_press.disconnect(self._press_conn)
+                self._press_conn = None
+            if self._release_conn:
+                canvas.events.mouse_release.disconnect(self._release_conn)
+                self._release_conn = None
+            if self._double_conn:
+                canvas.events.mouse_double_click.disconnect(self._double_conn)
+                self._double_conn = None
+        except Exception as e:
+            show_info(f"Error disconnecting handlers: {e}")
 
-def _on_press(self, event):
-    layer = self.viewer.layers.selection.active
-    mode = Mode(layer.mode)
-    label = layer.selected_label
-    if mode in (Mode.PAINT, Mode.FILL, Mode.ERASE, Mode.POLYGON) and not self._tracker.active:
-        self._last_label = label
-        self._tracker.start(label)
+    def _on_mode_change(self, event):
+        if self._tracker.active:
+            self._tracker.stop()
+        self._disconnect_handlers()
+        self._attach_handlers()
+
+    def _on_press(self, event):
+        layer = self.viewer.layers.selection.active
+        mode = Mode(layer.mode)
+        if mode not in (Mode.PAINT, Mode.FILL, Mode.ERASE, Mode.POLYGON):
+            return
+        label = layer.selected_label
+        if not self._tracker.active and label is not None:
+            self._last_label = label
+            self._tracker.start(label)
 
     def _on_release(self, event):
+        if not self._tracker.active:
+            return
         layer = self.viewer.layers.selection.active
         mode = Mode(layer.mode)
-        if mode in (Mode.PAINT, Mode.FILL, Mode.ERASE) and self._tracker.active:
-            elapsed = self._tracker.stop()
-            label = self._last_label
-            total = self._tracker.report().get(label, 0.0)
-            show_info(f"Label {label}: +{elapsed:.2f}s (total {total:.2f}s)")
-            self._last_label = None
+        if mode in (Mode.PAINT, Mode.FILL, Mode.ERASE):
+            self._stop_and_print()
 
     def _on_double_click(self, event):
+        """
+        Handle mouse double-click: stop timing for polygon tool.
+        """
+        if not self._tracker.active:
+            return
         layer = self.viewer.layers.selection.active
         mode = Mode(layer.mode)
-        if mode == Mode.POLYGON and self._tracker.active:
-            elapsed = self._tracker.stop()
-            label = self._last_label
-            total = self._tracker.report().get(label, 0.0)
-            show_info(f"Label {label}: +{elapsed:.2f}s (total {total:.2f}s)")
-            self._last_label = None
+        if mode == Mode.POLYGON:
+            self._stop_and_print()
+
+    def _stop_and_print(self):
+        elapsed = self._tracker.stop()
+        label = self._last_label
+        total = self._tracker.report().get(label, 0.0)
+        self._last_label = None
 
     def get_time_map(self):
         return self._tracker.report()
-
-
 
