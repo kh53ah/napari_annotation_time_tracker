@@ -25,7 +25,7 @@ class AnnotationTimerWidget(QWidget):
         self._double_press_conn = None
         self._time_map = {}
 
-    def _start_tracking(self):
+    def start(self):
         # find active Labels layer
         layer = self.viewer.layers.selection.active
         if not isinstance(layer, Labels):
