@@ -24,10 +24,11 @@ class TotalTimer:
                 current_session_elapsed = time.time() - self.start_time
                 self.total_elapsed_time += current_session_elapsed
                 self.start_time = None #start time zurücksetzen
+            print(f"Total accumulated time: {self.total_elapsed_time:.2f} seconds.")
 
     def get_total_time(self):
-        if self.is_running:
-            return self.total_elapsed_time + (time.time() - self.start_time)
+     #   if self.is_running:
+      #      return self.total_elapsed_time + (time.time() - self.start_time)
         return self.total_elapsed_time
 
 
