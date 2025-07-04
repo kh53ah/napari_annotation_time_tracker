@@ -18,6 +18,7 @@ class TimeTrackerWidget(QWidget):
         self.stt = ShapeTimeTracker(self.viewer)
         self.ltt = LabelsStart(self.viewer)
         self.start_stop_btn = None
+        self.timer = TotalTimer()
 
         # GUI Layout
         layout = QVBoxLayout()
@@ -38,6 +39,8 @@ class TimeTrackerWidget(QWidget):
         # Connect Layer Selection
         self.viewer.layers.selection.events.changed.connect(self._on_selection_change)
         self._on_selection_change(None)
+
+
 
     def _on_selection_change(self, event):
         selected = list(self.viewer.layers.selection)
@@ -64,8 +67,14 @@ class TimeTrackerWidget(QWidget):
             show_info("Unknown layer type")
 
     def _on_start_stop_clicked(self):
-        #self.start_stop_btn.start()
-        pass
+        if not self.timer.is_running:
+            self.timer.start_total_time()
+            self.start_stop_btn.setText("Stopp")
+        else:
+            self.timer.stop_total_time()
+            self.start_stop_btn.setText("Start")
+
+
 
     def _on_reset_clicked(self):  # Insert Reset Methode
         pass

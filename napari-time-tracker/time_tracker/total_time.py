@@ -11,10 +11,9 @@ class TotalTimer:
         self.total_elapsed_time = 0.0 #Summiert die gesamte verstrichene Zeit
 
 
-
     def start_total_time(self):
         if not self.is_running:
-            show_info('Drücke Start, um zu beginnen')
+            #show_info('Drücke Start, um zu beginnen')
             self.is_running = True
             self.start_time = time.time()
 
