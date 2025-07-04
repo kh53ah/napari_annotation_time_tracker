@@ -6,7 +6,7 @@ from napari.layers import Shapes, Points, Labels, Image
 from .points_time import PointsTimeTracker
 from .shapes_time import ShapeTimeTracker
 from .trigger_labels import LabelsStart
-
+from .total_time import TotalTimer
 
 # from .FILENAME import CLASS
 
