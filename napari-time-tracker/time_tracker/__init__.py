@@ -1,6 +1,7 @@
 # time_tracker_widget.py
 
 from qtpy.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton
+from qtpy.QtCore import QTimer
 from napari.utils.notifications import show_info
 from napari.layers import Shapes, Points, Labels, Image
 from .points_time import PointsTimeTracker
@@ -23,6 +24,14 @@ class TimeTrackerWidget(QWidget):
         # GUI Layout
         layout = QVBoxLayout()
         layout.addWidget(QLabel("Time tracking plugin active"))
+
+        # QTimer for continuous updating
+        self.update_interval_timer = QTimer(self)  # Create new QTimer
+        self.update_interval_timer.setInterval(300)  # Set interval to 300 milliseconds
+        # The _on_update_interval_timeout method is called when the timer expires
+        self.update_interval_timer.timeout.connect(self._on_update_interval_timeout)
+        # The timer starts immediately, but it only updates the time when the main timer is running
+        self.update_interval_timer.start()
 
         # Start/Stop Button
         self.start_stop_btn = QPushButton("Start / Stop")
@@ -74,6 +83,9 @@ class TimeTrackerWidget(QWidget):
             self.timer.stop_total_time()
             self.start_stop_btn.setText("Start")
 
+    def _on_update_interval_timeout(self):
+        if self.timer.is_running:
+            self.timer.update_total_time_on_fly()
 
 
     def _on_reset_clicked(self):  # Insert Reset Methode
