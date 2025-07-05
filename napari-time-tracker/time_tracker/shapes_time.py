@@ -45,6 +45,8 @@ class ShapeTimeTracker:
             case _:
                 show_info(f"Tool '{shape_layer_mode}' unsupported")
 
+
+
     def _connect_drag_and_drop(self):
         canvas = self.viewer.window.qt_viewer.canvas
 
@@ -189,10 +191,14 @@ class ShapeTimeTracker:
 
     def map_time(self, t):
         current_layer = list(self.viewer.layers.selection)[0]
-        current_object = current_layer.selected_data
-        tmp = {self.timeMap.get(current_layer): None}
-        if tmp is None:
+        selected = current_layer.selected_data
+
+        if len(selected) != 1: return
+
+        object_id = next(iter(selected))  # int, geeignet als Dictionary-Key
+
+        if current_layer not in self.timeMap:
             self.timeMap[current_layer] = {}
-        tmp.update({current_object: t})
-        self.timeMap.update({current_layer: tmp})
+
+        self.timeMap[current_layer][object_id] = t
         print(self.timeMap)
