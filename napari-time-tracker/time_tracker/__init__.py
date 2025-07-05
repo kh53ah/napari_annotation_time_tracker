@@ -1,12 +1,12 @@
 # time_tracker_widget.py
 
 from qtpy.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton
+from qtpy.QtCore import QTimer
 from napari.utils.notifications import show_info
 from napari.layers import Shapes, Points, Labels, Image
 from .points_time import PointsTimeTracker
 from .shapes_time import ShapeTimeTracker
 from .trigger_labels import LabelsStart
-
 
 # from .FILENAME import CLASS
 
@@ -40,6 +40,7 @@ class TimeTrackerWidget(QWidget):
         self._on_selection_change(None)
 
     def _on_selection_change(self, event):
+
         selected = list(self.viewer.layers.selection)
         if len(selected) != 1:
             if len(selected) == 0:
