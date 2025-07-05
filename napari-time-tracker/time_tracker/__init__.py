@@ -40,7 +40,8 @@ class TimeTrackerWidget(QWidget):
         self._on_selection_change(None)
 
     def _on_selection_change(self, event):
-
+        self.stt.disconnect_all()
+        self.ltt._disconnect_handlers()
         selected = list(self.viewer.layers.selection)
         if len(selected) != 1:
             if len(selected) == 0:
