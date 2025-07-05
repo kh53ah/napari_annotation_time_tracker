@@ -7,7 +7,6 @@ from napari.layers import Shapes, Points, Labels, Image
 from .points_time import PointsTimeTracker
 from .shapes_time import ShapeTimeTracker
 from .trigger_labels import LabelsStart
-from .total_time import TotalTimer
 
 # from .FILENAME import CLASS
 
@@ -19,19 +18,10 @@ class TimeTrackerWidget(QWidget):
         self.stt = ShapeTimeTracker(self.viewer)
         self.ltt = LabelsStart(self.viewer)
         self.start_stop_btn = None
-        self.timer = TotalTimer()
 
         # GUI Layout
         layout = QVBoxLayout()
         layout.addWidget(QLabel("Time tracking plugin active"))
-
-        # QTimer for continuous updating
-        self.update_interval_timer = QTimer(self)  # Create new QTimer
-        self.update_interval_timer.setInterval(300)  # Set interval to 300 milliseconds
-        # The _on_update_interval_timeout method is called when the timer expires
-        self.update_interval_timer.timeout.connect(self._on_update_interval_timeout)
-        # The timer starts immediately, but it only updates the time when the main timer is running
-        self.update_interval_timer.start()
 
         # Start/Stop Button
         self.start_stop_btn = QPushButton("Start / Stop")
@@ -49,9 +39,9 @@ class TimeTrackerWidget(QWidget):
         self.viewer.layers.selection.events.changed.connect(self._on_selection_change)
         self._on_selection_change(None)
 
-
-
     def _on_selection_change(self, event):
+        self.stt.disconnect_all()
+        self.ltt._disconnect_handlers()
         selected = list(self.viewer.layers.selection)
         if len(selected) != 1:
             if len(selected) == 0:
@@ -76,17 +66,8 @@ class TimeTrackerWidget(QWidget):
             show_info("Unknown layer type")
 
     def _on_start_stop_clicked(self):
-        if not self.timer.is_running:
-            self.timer.start_total_time()
-            self.start_stop_btn.setText("Stopp")
-        else:
-            self.timer.stop_total_time()
-            self.start_stop_btn.setText("Start")
-
-    def _on_update_interval_timeout(self):
-        if self.timer.is_running:
-            self.timer.update_total_time_on_fly()
-
+        #self.start_stop_btn.start()
+        pass
 
     def _on_reset_clicked(self):  # Insert Reset Methode
         pass
