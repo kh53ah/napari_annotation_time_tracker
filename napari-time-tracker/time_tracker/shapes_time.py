@@ -28,12 +28,15 @@ class ShapeTimeTracker:
         # attributs needed for saving time
         self.timeMap = {}
 
+        # attributs for mode changes
+        self._connected_shape_layer = None
+
     # main methode for starting the shape layer tracking
     def shape_connect(self):
 
-        shape_layer = list(self.viewer.layers.selection)[0]
-        shape_layer_mode = Mode(shape_layer.mode)
-        shape_layer.events.mode.connect(self._on_mode_change)
+        self._connected_shape_layer = list(self.viewer.layers.selection)[0]
+        shape_layer_mode = Mode(self._connected_shape_layer.mode)
+        self._connected_shape_layer.events.mode.connect(self._on_mode_change)
 
         match shape_layer_mode:  #Only track if we use a annotation tool
             case Mode.ADD_ELLIPSE | Mode.ADD_RECTANGLE | Mode.ADD_LINE:
@@ -44,8 +47,6 @@ class ShapeTimeTracker:
                 self._connect_dual_with_extension()
             case _:
                 show_info(f"Tool '{shape_layer_mode}' unsupported")
-
-
 
     def _connect_drag_and_drop(self):
         canvas = self.viewer.window.qt_viewer.canvas
@@ -185,6 +186,10 @@ class ShapeTimeTracker:
             if self._dual_key_press_connection is not None:
                 canvas.events.key_press.disconnect(self._dual_key_press_connection)
                 self._dual_key_press_connection = None
+
+            if self._connected_shape_layer is not None:
+                self._connected_shape_layer.events.mode.disconnect(self._connected_shape_layer)
+                self._connected_shape_layer = None
 
         except Exception as e:
             show_info(f"event-handler-error: {e}")
