@@ -1,9 +1,9 @@
 from qtpy.QtCore import QObject
 from napari.utils.notifications import show_info
 from napari.layers.labels._labels_constants import Mode
+from napari.layers.labels import Labels
 
 from .labels_time import LabelTimeTracker
-
 
 class LabelsStart(QObject):
     def __init__(self, viewer):
@@ -13,15 +13,19 @@ class LabelsStart(QObject):
         self._press_conn = None
         self._release_conn = None
         self._double_conn = None
-
+        self._mode_conn = None
         self._last_label = None
 
-        # attributs needed for mode changes
-        self._connected_labels_layer = None
+        # CHANGE: nested map[layer][label_id] → total_time
+        self.timeMap = {}
 
     def start(self):
-        self._connected_labels_layer = list(self.viewer.layers.selection)[0]
-        self._connected_labels_layer.events.mode.connect(self._on_mode_change)
+        layer = self.viewer.layers.selection.active
+        if not isinstance(layer, Labels):
+            show_info("Please select a Labels layer to track.")
+            return
+        if self._mode_conn is None:
+            self._mode_conn = layer.events.mode.connect(self._on_mode_change)
         self._attach_handlers()
 
         show_info("Label time tracking started. Switch to an annotation tool to begin timing.")
@@ -47,10 +51,6 @@ class LabelsStart(QObject):
             if self._double_conn:
                 canvas.events.mouse_double_click.disconnect(self._double_conn)
                 self._double_conn = None
-            if self._connected_labels_layer is not None:
-                self._connected_labels_layer.events.mode.disconnect(self._on_mode_change)
-                self._connected_labels_layer = None
-
         except Exception as e:
             show_info(f"Error disconnecting handlers: {e}")
 
@@ -58,13 +58,14 @@ class LabelsStart(QObject):
         if self._tracker.active:
             self._tracker.stop()
         self._disconnect_handlers()
-        self.start()
+        self._attach_handlers()
 
     def _on_press(self, event):
-        mode = Mode(self._connected_labels_layer.mode)
+        layer = self.viewer.layers.selection.active
+        mode = Mode(layer.mode)
         if mode not in (Mode.PAINT, Mode.FILL, Mode.ERASE, Mode.POLYGON):
             return
-        label = self._connected_labels_layer.selected_label
+        label = layer.selected_label
         if not self._tracker.active and label is not None:
             self._last_label = label
             self._tracker.start(label)
@@ -72,22 +73,32 @@ class LabelsStart(QObject):
     def _on_release(self, event):
         if not self._tracker.active:
             return
-        mode = Mode(self._connected_labels_layer.mode)
+        layer = self.viewer.layers.selection.active
+        mode = Mode(layer.mode)
         if mode in (Mode.PAINT, Mode.FILL, Mode.ERASE):
-            self._stop_and_print()
+            self._stop_and_record()
 
     def _on_double_click(self, event):
         if not self._tracker.active:
             return
-        mode = Mode(self._connected_labels_layer.mode)
+        layer = self.viewer.layers.selection.active
+        mode = Mode(layer.mode)
         if mode == Mode.POLYGON:
-            self._stop_and_print()
+            self._stop_and_record()
 
-    def _stop_and_print(self):
-        elapsed = self._tracker.stop()
+    def _stop_and_record(self):
+
+        self._tracker.stop()
         label = self._last_label
         total = self._tracker.report().get(label, 0.0)
+        current_layer = list(self.viewer.layers.selection)[0]
+        if current_layer not in self.timeMap:
+            self.timeMap[current_layer] = {}
+        self.timeMap[current_layer][label] = total
+        print(self.timeMap)
         self._last_label = None
 
     def get_time_map(self):
-        return self._tracker.report()
+        return self.timeMap
+
+
