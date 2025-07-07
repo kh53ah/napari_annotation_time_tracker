@@ -32,6 +32,8 @@ class PointsTimeTracker:
         self.points_array_before = 0
         self.durations = []
 
+        self.timeMap = {}
+
     def get_current_points_layer(self, viewer):
 
         # Get currently selected layers
@@ -55,9 +57,7 @@ class PointsTimeTracker:
 
         if points_array_after > self.points_array_before and self.start_time is not None:
             duration = time.time() - self.start_time
-            self.durations.append(duration)
-            print(f"Point added! Duration: {duration:.3f} seconds")
-
+            self.map_time(duration)
             self.points_array_before = points_array_after
             self.start_time = None
 
