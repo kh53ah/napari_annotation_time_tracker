@@ -1,5 +1,5 @@
 # time_tracker_widget.py
-
+import re
 import time
 import os
 import json
@@ -130,15 +130,32 @@ class TimeTrackerWidget(QWidget):
         except Exception as e:
             show_info(f"Failed to write JSON: {e}")
 
-    def load_json(self):
-        path, _ = QFileDialog.getOpenFileName(
-            None, "Open time_tracker_data.json", "", "JSON files (*.json)"
-        )
-        if not path:
+    def _export_json(self):
+        # Update and export only if data present
+        self.global_timer.update_total_time_on_fly()
+        data = {
+            "timestamp": time.time(),
+            "global_time_seconds": self.global_timer.get_total_time(),
+            "per_layer_data": self.get_all_time_maps(),
+        }
+        # Skip if no timing recorded
+        if all(not v for v in data["per_layer_data"].values()):
             return
 
+        path = os.path.join(os.path.dirname(napari.__file__), "time_tracker_data.json")
         try:
-            with open(path, "r") as f:
+            with open(path, 'w') as f:
+                json.dump(data, f, indent=2)
+            print(f"[TimeTrackerWidget] Exported JSON to {path}")
+        except Exception as e:
+            show_info(f"Failed to write JSON: {e}")
+
+    def load_json(self):
+        path, _ = QFileDialog.getOpenFileName(None, "Open time_tracker_data.json", "", "JSON files (*.json)")
+        if not path:
+            return
+        try:
+            with open(path, 'r') as f:
                 data = json.load(f)
         except Exception as e:
             show_info(f"Failed to load JSON: {e}")
@@ -146,32 +163,39 @@ class TimeTrackerWidget(QWidget):
 
         per_layer = data.get("per_layer_data", {})
 
-        def clean_map(raw_map):
-            return {int(k): float(v) for k, v in raw_map.items()} #restore data from strings
-            #restore layerdata and save to maps
-        pts = per_layer.get("points", {})
+        def clean_map(raw):
+            return {int(k): float(v) for k, v in raw.items()}
+
+        # Map multiple layer keys by index
+        # Points
         self.ptt.timeMap.clear()
-        for layer_name, times in pts.items():
-             layer = self.viewer.layers.get(layer_name, None)
-             if layer is None:
-                continue
-             self.ptt.timeMap[layer] = clean_map(times)
+        points_layers = [ly for ly in self.viewer.layers if isinstance(ly, Points)]
+        for key, times in per_layer.get("points", {}).items():
+            m = re.match(r".*\[(\d+)\]$", key)
+            idx = int(m.group(1)) if m else 0
+            if idx < len(points_layers):
+                layer = points_layers[idx]
+                self.ptt.timeMap[layer] = clean_map(times)
 
-        shp = per_layer.get("shapes", {})
+        # Shapes
         self.stt.timeMap.clear()
-        for layer_name, times in shp.items():
-            layer = self.viewer.layers.get(layer_name, None)
-            if layer is None:
-                continue
-            self.stt.timeMap[layer] = clean_map(times)
+        shapes_layers = [ly for ly in self.viewer.layers if isinstance(ly, Shapes)]
+        for key, times in per_layer.get("shapes", {}).items():
+            m = re.match(r".*\[(\d+)\]$", key)
+            idx = int(m.group(1)) if m else 0
+            if idx < len(shapes_layers):
+                layer = shapes_layers[idx]
+                self.stt.timeMap[layer] = clean_map(times)
 
-        lbl = per_layer.get("labels", {})
+        # Labels
         self.ltt.timeMap.clear()
-        for layer_name, times in lbl.items():
-             layer = self.viewer.layers.get(layer_name, None)
-             if layer is None:
-                continue
-             self.ltt.timeMap[layer] = clean_map(times)
+        labels_layers = [ly for ly in self.viewer.layers if isinstance(ly, Labels)]
+        for key, times in per_layer.get("labels", {}).items():
+            m = re.match(r".*\[(\d+)\]$", key)
+            idx = int(m.group(1)) if m else 0
+            if idx < len(labels_layers):
+                layer = labels_layers[idx]
+                self.ltt.timeMap[layer] = clean_map(times)
 
         show_info("Time maps successfully loaded from JSON.")
 
