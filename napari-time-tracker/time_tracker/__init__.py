@@ -40,6 +40,10 @@ class TimeTrackerWidget(QWidget):
         self.reset_btn.clicked.connect(self._on_reset_clicked)
         layout.addWidget(self.reset_btn)
 
+        self.load_btn = QPushButton("Load timings")
+        self.load_btn.clicked.connect(self.load_json)
+        layout.addWidget(self.load_btn)
+
         self.setLayout(layout)
 
         # watch layer selection
