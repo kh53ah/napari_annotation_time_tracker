@@ -12,7 +12,7 @@ from napari.layers import Shapes, Points, Labels, Image
 from .points_time     import PointsTimeTracker
 from .shapes_time     import ShapeTimeTracker
 from .trigger_labels  import LabelsStart
-# from .total_timer   import TotalTimer  # if you want a global timer
+from .total_time   import TotalTimer
 
 class TimeTrackerWidget(QWidget):
     def __init__(self, napari_viewer):
@@ -22,10 +22,8 @@ class TimeTrackerWidget(QWidget):
         self.stt = ShapeTimeTracker(self.viewer)
         self.ltt = LabelsStart(self.viewer)
 
-        # optional: global total timer
-        # self.global_timer = TotalTimer()
-        # self.global_timer.start_total_time()
-        self._export_timer = QTimer(self) #timer for export
+        self.global_timer = TotalTimer()
+        self._export_timer = QTimer(self) #timer for export every 60s
         self._export_timer.setInterval(60_000)
         self._export_timer.timeout.connect(self._export_json)
         self._export_timer.start()
@@ -73,15 +71,22 @@ class TimeTrackerWidget(QWidget):
             show_info("Unknown layer type.")
 
     def _on_start_stop_clicked(self):
-        pass
+        if self.global_timer.is_running:
+            self.global_timer.stop_total_time()
+            show_info(f"Global timer stopped at {self.global_timer.get_total_time():.2f}s")
+        else:
+            self.global_timer.start_total_time()
+            show_info("Global timer started")
 
     def _on_reset_clicked(self):
-        pass
+        for tracker in (self.ptt, self.stt, self.ltt):
+            if hasattr(tracker, 'timeMap'):
+                tracker.timeMap.clear()
 
     def get_all_time_maps(self):
         return {
-            #"points": self.ptt.get_time_map(),
-            "shapes": self.stt.map_time(),
+            "points": self.ptt.get_time_map(),
+            "shapes": self.stt.get_time_map(),
             "labels": self.ltt.get_time_map(),
         }
 
@@ -91,7 +96,7 @@ class TimeTrackerWidget(QWidget):
 
         data = {
             "timestamp": time.time(),
-            # "global_time_seconds": self.total_timer.get_total_time(),
+            "global_time_seconds": self.total_time.get_total_time(),
             "per_layer_data": self.get_all_time_maps(),
         }
 
