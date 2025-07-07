@@ -207,3 +207,6 @@ class ShapeTimeTracker:
 
         self.timeMap[current_layer][object_id] = t
         print(self.timeMap)
+
+    def get_time_map(self): #added for call in _init_ to write to JSON
+        return self.timeMap
