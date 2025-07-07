@@ -84,19 +84,30 @@ class TimeTrackerWidget(QWidget):
                 tracker.timeMap.clear()
 
     def get_all_time_maps(self):
+        def stringify_layer_map(layer_map):
+            out = {}
+            for layer_obj, label_times in layer_map.items():
+                # Use the layer's name if it exists, otherwise fallback to its repr or id
+                key = layer_obj.name or f"layer_{id(layer_obj)}"
+                out[key] = label_times
+            return out
+
+        pts_map = getattr(self.ptt, "timeMap", {})
+        shp_map = getattr(self.stt, "timeMap", {})
+        lbl_map = getattr(self.ltt, "timeMap", {})
+
         return {
-            "points": self.ptt.get_time_map(),
-            "shapes": self.stt.get_time_map(),
-            "labels": self.ltt.get_time_map(),
+            "points": stringify_layer_map(pts_map),
+            "shapes": stringify_layer_map(shp_map),
+            "labels": stringify_layer_map(lbl_map),
         }
 
     def _export_json(self):
 
-        #    self.total_time.update_total_time_on_fly()
-
+        self.global_timer.update_total_time_on_fly() #update global timer in JSON
         data = {
             "timestamp": time.time(),
-            "global_time_seconds": self.total_time.get_total_time(),
+            "global_time_seconds": self.global_timer.get_total_time(),
             "per_layer_data": self.get_all_time_maps(),
         }
 
