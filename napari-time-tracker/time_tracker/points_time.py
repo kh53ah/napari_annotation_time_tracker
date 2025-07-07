@@ -77,6 +77,22 @@ class PointsTimeTracker:
         self.viewer.mouse_drag_callbacks.append(self.onClick_detector)
         self.points_layer.events.data.connect(self.on_points_change)
 
+    def map_time(self, t):
+        current_layer = list(self.viewer.layers.selection)[0]
+        selected = current_layer.selected_data
+
+        if len(selected) != 1: return
+
+        object_id = next(iter(selected))  # int, geeignet als Dictionary-Key
+
+        if current_layer not in self.timeMap:
+            self.timeMap[current_layer] = {}
+
+        self.timeMap[current_layer][object_id] = t
+        print(self.timeMap)
+
+    def get_map_time(self):
+        return self.timeMap
 """
 def pause():
     def trace_annotation_modes(viewer):
