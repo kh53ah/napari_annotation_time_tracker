@@ -1,2 +1,0 @@
-[napari.manifest]
-napari-time-tracker = time_tracker:napari.yaml
