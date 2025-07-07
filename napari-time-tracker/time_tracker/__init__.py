@@ -87,7 +87,6 @@ class TimeTrackerWidget(QWidget):
         def stringify_layer_map(layer_map):
             out = {}
             for layer_obj, label_times in layer_map.items():
-                # Use the layer's name if it exists, otherwise fallback to its repr or id
                 key = layer_obj.name or f"layer_{id(layer_obj)}"
                 clean_times = {}
                 for obj_id, t in label_times.items():

@@ -90,8 +90,7 @@ class PointsTimeTracker:
 
         self.timeMap[current_layer][object_id] = t
         print(self.timeMap)
-
-    def get_map_time(self):
+    def get_time_map(self):
         return self.timeMap
 """
 def pause():
