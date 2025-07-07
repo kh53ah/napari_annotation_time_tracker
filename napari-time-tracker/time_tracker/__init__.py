@@ -89,7 +89,10 @@ class TimeTrackerWidget(QWidget):
             for layer_obj, label_times in layer_map.items():
                 # Use the layer's name if it exists, otherwise fallback to its repr or id
                 key = layer_obj.name or f"layer_{id(layer_obj)}"
-                out[key] = label_times
+                clean_times = {}
+                for obj_id, t in label_times.items():
+                    clean_times[int(obj_id)] = float(t)
+                out[key] = clean_times
             return out
 
         pts_map = getattr(self.ptt, "timeMap", {})
