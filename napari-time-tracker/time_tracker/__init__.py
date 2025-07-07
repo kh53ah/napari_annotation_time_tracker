@@ -127,3 +127,50 @@ class TimeTrackerWidget(QWidget):
         except Exception as e:
             show_info(f"Failed to write JSON: {e}")
 
+    def load_json(self):
+        path, _ = QFileDialog.getOpenFileName(
+            None, "Open time_tracker_data.json", "", "JSON files (*.json)"
+        )
+        if not path:
+            return
+
+        try:
+            with open(path, "r") as f:
+                data = json.load(f)
+        except Exception as e:
+            show_info(f"Failed to load JSON: {e}")
+            return
+
+        per_layer = data.get("per_layer_data", {})
+
+        def clean_map(raw_map):
+            return {int(k): float(v) for k, v in raw_map.items()} #restore data from strings
+            #restore layerdata and save to maps
+            pts = per_layer.get("points", {})
+            self.ptt.timeMap.clear()
+            for layer_name, times in pts.items():
+
+                layer = self.viewer.layers.get(layer_name, None)
+                if layer is None:
+                    continue
+                self.ptt.timeMap[layer] = clean_map(times)
+
+            shp = per_layer.get("shapes", {})
+            self.stt.timeMap.clear()
+            for layer_name, times in shp.items():
+                layer = self.viewer.layers.get(layer_name, None)
+                if layer is None:
+                    continue
+                self.stt.timeMap[layer] = clean_map(times)
+
+            lbl = per_layer.get("labels", {})
+            self.ltt.timeMap.clear()
+            for layer_name, times in lbl.items():
+                layer = self.viewer.layers.get(layer_name, None)
+                if layer is None:
+                    continue
+                self.ltt.timeMap[layer] = clean_map(times)
+
+            show_info("Time maps successfully loaded from JSON.")
+
+
