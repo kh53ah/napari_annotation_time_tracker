@@ -32,8 +32,6 @@ class PointsTimeTracker:
         self.points_array_before = 0
         self.durations = []
 
-        self.timeMap = {}
-
     def get_current_points_layer(self, viewer):
 
         # Get currently selected layers
@@ -57,7 +55,9 @@ class PointsTimeTracker:
 
         if points_array_after > self.points_array_before and self.start_time is not None:
             duration = time.time() - self.start_time
-            self.map_time(duration)
+            self.durations.append(duration)
+            print(f"Point added! Duration: {duration:.3f} seconds")
+
             self.points_array_before = points_array_after
             self.start_time = None
 
@@ -77,19 +77,6 @@ class PointsTimeTracker:
         self.viewer.mouse_drag_callbacks.append(self.onClick_detector)
         self.points_layer.events.data.connect(self.on_points_change)
 
-    def map_time(self, t):
-        current_layer = list(self.viewer.layers.selection)[0]
-        selected = current_layer.selected_data
-
-        if len(selected) != 1: return
-
-        object_id = next(iter(selected))  # int, geeignet als Dictionary-Key
-
-        if current_layer not in self.timeMap:
-            self.timeMap[current_layer] = {}
-
-        self.timeMap[current_layer][object_id] = t
-        print(self.timeMap)
 """
 def pause():
     def trace_annotation_modes(viewer):
