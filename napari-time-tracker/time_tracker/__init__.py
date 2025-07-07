@@ -4,11 +4,11 @@ import time
 import os
 import json
 import napari
+from PyQt5.QtWidgets import QFileDialog
 from qtpy.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton
 from qtpy.QtCore    import QTimer
 from napari.utils.notifications import show_info
 from napari.layers import Shapes, Points, Labels, Image
-
 from .points_time     import PointsTimeTracker
 from .shapes_time     import ShapeTimeTracker
 from .trigger_labels  import LabelsStart
@@ -21,12 +21,11 @@ class TimeTrackerWidget(QWidget):
         self.ptt = PointsTimeTracker(self.viewer)
         self.stt = ShapeTimeTracker(self.viewer)
         self.ltt = LabelsStart(self.viewer)
-
         self.global_timer = TotalTimer()
         self._export_timer = QTimer(self) #timer for export every 60s
         self._export_timer.setInterval(60_000)
         self._export_timer.timeout.connect(self._export_json)
-        self._export_timer.start()
+
 
         # build UI
         layout = QVBoxLayout()
@@ -77,10 +76,14 @@ class TimeTrackerWidget(QWidget):
     def _on_start_stop_clicked(self):
         if self.global_timer.is_running:
             self.global_timer.stop_total_time()
-            show_info(f"Global timer stopped at {self.global_timer.get_total_time():.2f}s")
+            if self._export_timer.isActive():
+                self._export_timer.stop()
+            show_info(f"Global timer stopped at {self.global_timer.get_total_time():.2f}s and export paused")
         else:
             self.global_timer.start_total_time()
-            show_info("Global timer started")
+            if not self._export_timer.isActive():
+                self._export_timer.start()
+            show_info("Global timer started and export timer activated")
 
     def _on_reset_clicked(self):
         for tracker in (self.ptt, self.stt, self.ltt):
@@ -146,31 +149,31 @@ class TimeTrackerWidget(QWidget):
         def clean_map(raw_map):
             return {int(k): float(v) for k, v in raw_map.items()} #restore data from strings
             #restore layerdata and save to maps
-            pts = per_layer.get("points", {})
-            self.ptt.timeMap.clear()
-            for layer_name, times in pts.items():
+        pts = per_layer.get("points", {})
+        self.ptt.timeMap.clear()
+        for layer_name, times in pts.items():
+             layer = self.viewer.layers.get(layer_name, None)
+             if layer is None:
+                continue
+             self.ptt.timeMap[layer] = clean_map(times)
 
-                layer = self.viewer.layers.get(layer_name, None)
-                if layer is None:
-                    continue
-                self.ptt.timeMap[layer] = clean_map(times)
+        shp = per_layer.get("shapes", {})
+        self.stt.timeMap.clear()
+        for layer_name, times in shp.items():
+            layer = self.viewer.layers.get(layer_name, None)
+            if layer is None:
+                continue
+            self.stt.timeMap[layer] = clean_map(times)
 
-            shp = per_layer.get("shapes", {})
-            self.stt.timeMap.clear()
-            for layer_name, times in shp.items():
-                layer = self.viewer.layers.get(layer_name, None)
-                if layer is None:
-                    continue
-                self.stt.timeMap[layer] = clean_map(times)
+        lbl = per_layer.get("labels", {})
+        self.ltt.timeMap.clear()
+        for layer_name, times in lbl.items():
+             layer = self.viewer.layers.get(layer_name, None)
+             if layer is None:
+                continue
+             self.ltt.timeMap[layer] = clean_map(times)
 
-            lbl = per_layer.get("labels", {})
-            self.ltt.timeMap.clear()
-            for layer_name, times in lbl.items():
-                layer = self.viewer.layers.get(layer_name, None)
-                if layer is None:
-                    continue
-                self.ltt.timeMap[layer] = clean_map(times)
+        show_info("Time maps successfully loaded from JSON.")
 
-            show_info("Time maps successfully loaded from JSON.")
 
 
