@@ -47,6 +47,10 @@ class TimeTrackerWidget(QWidget):
         self.load_btn.clicked.connect(self.load_json)
         layout.addWidget(self.load_btn)
 
+        self.save_btn = QPushButton("Save")
+        self.save_btn.clicked.connect(self._on_save_clicked)
+        layout.addWidget(self.save_btn)
+
         self.setLayout(layout)
         self.viewer.layers.selection.events.changed.connect(self._on_selection_change)
         self._on_selection_change(None)
