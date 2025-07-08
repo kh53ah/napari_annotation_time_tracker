@@ -96,6 +96,18 @@ class TimeTrackerWidget(QWidget):
         for tracker in (self.ptt, self.stt, self.ltt):
             tracker.timeMap.clear()
 
+    def _on_save_clicked(self):
+        if self.global_timer.is_running:
+            self.global_timer.stop_total_time()
+            show_info(f"Global timer stopped at {self.global_timer.get_total_time():.2f}s")
+        # export timing JSON
+        self._export_json()
+        # save Napari project
+        project_path = os.path.join(self._time_tracker_dir, 'time_tracker_project.yaml')
+        self.viewer.save_project(project_path)
+        show_info(f"Saved Napari project to {project_path}")
+
+
     def get_all_time_maps(self):
 
         def stringify_simple(layer_map):
