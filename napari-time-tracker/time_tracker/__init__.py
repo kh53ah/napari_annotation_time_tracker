@@ -23,7 +23,7 @@ class TimeTrackerWidget(QWidget):
         self.ltt = LabelsStart(self.viewer)
         self.global_timer = TotalTimer()
         self._export_timer = QTimer(self) #timer for export every 60s
-        self._export_timer.setInterval(60_000)
+        self._export_timer.setInterval(30_000)
         self._export_timer.timeout.connect(self._export_json)
 
 
