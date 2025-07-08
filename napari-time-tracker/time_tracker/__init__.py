@@ -26,6 +26,11 @@ class TimeTrackerWidget(QWidget):
         self._export_timer.setInterval(30_000)
         self._export_timer.timeout.connect(self._export_json)
 
+        # create 'Time Tracker' directory next to napari installation
+        napari_dir = os.path.dirname(napari.__file__)
+        self._time_tracker_dir = os.path.join(napari_dir, 'Time Tracker')
+        os.makedirs(self._time_tracker_dir, exist_ok=True)
+
         # build UI
         layout = QVBoxLayout()
         layout.addWidget(QLabel("Time tracking plugin active"))
