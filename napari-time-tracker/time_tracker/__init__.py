@@ -11,6 +11,7 @@ from napari.utils.notifications import show_info
 from napari.layers import Shapes, Points, Labels, Image
 from .points_time     import PointsTimeTracker
 from .shapes_time     import ShapeTimeTracker
+from .pause_time import PauseTimeTracker
 from .trigger_labels  import LabelsStart
 from .total_time   import TotalTimer
 
@@ -21,6 +22,7 @@ class TimeTrackerWidget(QWidget):
         self.ptt = PointsTimeTracker(self.viewer)
         self.stt = ShapeTimeTracker(self.viewer)
         self.ltt = LabelsStart(self.viewer)
+        self.pause = PauseTimeTracker()
         self.global_timer = TotalTimer()
         self._export_timer = QTimer(self) #timer for export every 60s
         self._export_timer.setInterval(30_000)
@@ -61,7 +63,6 @@ class TimeTrackerWidget(QWidget):
 
         layer = selected[0]
         show_info(f"Selected layer: {layer.name} ({type(layer).__name__})")
-
         if isinstance(layer, Shapes):
             self.stt.shape_connect()
         elif isinstance(layer, Points):
