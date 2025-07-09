@@ -3,6 +3,7 @@ import time
 import os
 import json
 import napari
+import yaml
 from PyQt5.QtWidgets import QFileDialog
 from qtpy.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton
 from qtpy.QtCore import QTimer
