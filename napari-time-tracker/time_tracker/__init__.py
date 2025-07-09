@@ -152,7 +152,11 @@ class TimeTrackerWidget(QWidget):
             }
             # include data for vector layers
             if isinstance(layer, (Shapes, Points)):
-                entry["data"] = layer.data.tolist()
+                raw = layer.data
+                if isinstance(raw, list):
+                    entry["data"] = [arr.tolist() if hasattr(arr, 'tolist') else arr for arr in raw]
+                else:
+                    entry["data"] = raw.tolist()
             elif isinstance(layer, Labels):
                 entry["labels"] = layer.data.tolist()
             elif isinstance(layer, Image):
