@@ -148,6 +148,24 @@ class TimeTrackerWidget(QWidget):
         except Exception as e:
             show_info(f"Failed to write JSON: {e}")
 
+    def _export_yaml(self):
+
+        self.global_timer.update_total_time_on_fly()
+        data = {
+            "timestamp": time.time(),
+            "global_time_seconds": self.global_timer.get_total_time(),
+            "per_layer_data": self.get_all_time_maps(),
+        }
+        if all(not v for v in data["per_layer_data"].values()):
+            return
+        yaml_path = os.path.join(self._time_tracker_dir, 'time_tracker_data.yaml')
+        try:
+            with open(yaml_path, 'w') as f:
+                yaml.dump(data, f, sort_keys=False)
+            print(f"[TimeTrackerWidget] Exported YAML to {yaml_path}")
+        except Exception as e:
+            show_info(f"Failed to write YAML: {e}")
+
     def load_json(self):
         path, _ = QFileDialog.getOpenFileName(None, "Open time_tracker_data.json", "", "JSON files (*.json)")
         if not path:
