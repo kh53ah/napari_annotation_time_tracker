@@ -204,8 +204,9 @@ class ShapeTimeTracker:
 
         if current_layer not in self.timeMap:
             self.timeMap[current_layer] = {}
+        list_times = [start_timestamp, stop_timestamp, object_time]
 
-        self.timeMap[current_layer][object_id] = object_time
+        self.timeMap[current_layer][object_id] = list_times
         print(self.timeMap)
 
     def get_time_map(self):  #added for call in _init_ to write to JSON
