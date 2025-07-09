@@ -14,6 +14,7 @@ from .points_time import PointsTimeTracker
 from .shapes_time import ShapeTimeTracker
 from .trigger_labels import LabelsStart
 from .total_time import TotalTimer
+from .pause_time import PauseTimeTracker
 
 class TimeTrackerWidget(QWidget):
     def __init__(self, napari_viewer):
@@ -24,6 +25,7 @@ class TimeTrackerWidget(QWidget):
         self.ltt = LabelsStart(self.viewer)
 
         self.global_timer = TotalTimer()
+        self.pause_timer = PauseTimeTracker(self.viewer)
         self._export_timer = QTimer(self)
         self._export_timer.setInterval(30_000)
         self._export_timer.timeout.connect(self._export_json)
@@ -134,9 +136,12 @@ class TimeTrackerWidget(QWidget):
 
     def _export_json(self):
         self.global_timer.update_total_time_on_fly()
+        self.pause_timer.update_total_time_on_fly()
         data = {
         "timestamp": time.time(),
         "global_time_seconds": self.global_timer.get_total_time(),
+        "on_image_time_seconds":self.pause_timer.get_onImage(),
+        "off_image_time_seconds":self.pause_timer.get_offImage(),
         "per_layer_data": self.get_all_time_maps(),
             }
         if all(not v for v in data["per_layer_data"].values()):
