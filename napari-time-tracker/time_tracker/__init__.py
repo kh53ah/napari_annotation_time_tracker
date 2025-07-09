@@ -29,7 +29,7 @@ class TimeTrackerWidget(QWidget):
         self._export_timer.timeout.connect(self._export_json)
         self._export_timer.timeout.connect(self._export_yaml)
 
-                # create 'Time_Tracker' directory next to napari installation (no spaces for shell compatibility)
+        # create 'Time_Tracker' directory next to napari installation
         napari_dir = os.path.dirname(napari.__file__)
         self._time_tracker_dir = os.path.join(napari_dir, 'Time_Tracker')
         os.makedirs(self._time_tracker_dir, exist_ok=True)
@@ -141,9 +141,6 @@ class TimeTrackerWidget(QWidget):
             show_info(f"Failed to write JSON: {e}")
 
     def _export_yaml(self):
-        """
-        Export project manifest to YAML with references to per-layer Zarr stores for smaller file size.
-        """
         try:
             layer_files = []
             # export each layer to a Zarr store in the Time_Tracker directory
