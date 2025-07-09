@@ -86,11 +86,7 @@ class ShapeTimeTracker:
 
     def _on_mouse_release(self, event):
         if self.tracker_running:
-            movement_time = self.tracker.stop()
-            self.map_time(movement_time)
-            self.tracker_running = False
-            self.disconnect_all()
-            self.shape_connect()
+            self.end_and_reconnect()
 
     def _on_click(self, event):
         if not self.tracker_running:
@@ -99,11 +95,7 @@ class ShapeTimeTracker:
 
     def _on_key_press(self, event):
         if event.key == 'Escape':
-            movement_time = self.tracker.stop()
-            self.map_time(movement_time)
-            self.tracker_running = False
-            self.disconnect_all()
-            self.shape_connect()
+            self.end_and_reconnect()
 
     def _on_dual_press(self, event):
         if not self.tracker_running and self.click_count == 0:  # first left click starts timer
@@ -116,42 +108,34 @@ class ShapeTimeTracker:
             release_time = time.time()
             press_duration = release_time - self._press_time
             if press_duration >= 0.3:  # drag detected 300 ms
-                movement_time = self.tracker.stop()
-                self.map_time(movement_time)
-                self.tracker_running = False
-                self.disconnect_all()
-                self.shape_connect()
+                self.end_and_reconnect()
             else:  # click detected
                 self.click_count = 1
         elif self.tracker_running and self.click_count == 1:  # second release stops time for click-based
-            movement_time = self.tracker.stop()
-            self.map_time(movement_time)
-            self.tracker_running = False
             self.click_count = 0
-            self.disconnect_all()
-            self.shape_connect()
+            self.end_and_reconnect()
 
     def _on_dual_key(self, event):
         if event.key == 'Escape' and self.tracker_running:
-            movement_time = self.tracker.stop()
-            self.map_time(movement_time)
-            self.tracker_running = False
             self.click_count = 0
-            self.disconnect_all()
-            self.shape_connect()
+            self.end_and_reconnect()
 
     def _on_dual_right_click(self, event):
         if event.button == 2 and self.tracker_running:
-            movement_time = self.tracker.stop()
-            self.map_time(movement_time)
-            self.tracker_running = False
             self.click_count = 0
-            self.disconnect_all()
-            self.shape_connect()
+            self.end_and_reconnect()
 
     def _on_mode_change(self, event):
         show_info(f"Tool changed: {list(self.viewer.layers.selection)[0].mode}")
         print(self.timeMap)
+        self.disconnect_all()
+        self.shape_connect()
+
+    def end_and_reconnect(self):
+        movement_time = self.tracker.stop()
+        self.map_time(self.tracker.remember_start, self.tracker.remember_stop, movement_time)
+        self.tracker.reset_timestamps()
+        self.tracker_running = False
         self.disconnect_all()
         self.shape_connect()
 
@@ -194,7 +178,7 @@ class ShapeTimeTracker:
         except Exception as e:
             show_info(f"event-handler-error: {e}")
 
-    def map_time(self, t):
+    def map_time(self, start_timestamp, stop_timestamp, object_time):
         current_layer = list(self.viewer.layers.selection)[0]
         selected = current_layer.selected_data
 
@@ -204,9 +188,10 @@ class ShapeTimeTracker:
 
         if current_layer not in self.timeMap:
             self.timeMap[current_layer] = {}
+        list_times = [start_timestamp, stop_timestamp, object_time]
 
-        self.timeMap[current_layer][object_id] = t
+        self.timeMap[current_layer][object_id] = list_times
         print(self.timeMap)
 
-    def get_time_map(self): #added for call in _init_ to write to JSON
+    def get_time_map(self):  #added for call in _init_ to write to JSON
         return self.timeMap
