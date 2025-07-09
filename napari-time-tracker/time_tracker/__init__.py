@@ -148,13 +148,15 @@ class TimeTrackerWidget(QWidget):
             show_info(f"Failed to write JSON: {e}")
 
     def _export_yaml(self):
-
         project_path = os.path.join(self._time_tracker_dir, 'time_tracker_project.yaml')
         try:
+            # Use the Viewer API directly, cross-platform
             self.viewer.save_project(project_path)
             show_info(f"Saved Napari project to {project_path}")
+
         except Exception as e:
             show_info(f"Failed to save project YAML: {e}")
+
 
     def load_json(self):
         path, _ = QFileDialog.getOpenFileName(None, "Open time_tracker_data.json", "", "JSON files (*.json)")
