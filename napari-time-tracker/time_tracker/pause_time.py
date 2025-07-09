@@ -23,12 +23,37 @@ class PauseTimeTracker:
             # Connect mouse move callback
             self.viewer.mouse_move_callbacks.append(self.on_mouse_move)
 
-        def update_onImage_offImage_time_on_fly(self):
-            if self.state_start_time is not None:
-                current_onImageTime_since_last_update = self.durations_on_image
-                current_outImageTime_since_last_update = self.durations_off_image
-                self.durations_on_image = 0
-                self.durations_off_image = 0
+        def update_onImage_time_on_fly(self):
+            current_time = time.time()
+
+            # Calculate current accumulated time including ongoing state
+            total_on_image = self.durations_on_image
+
+            # Add time from current state if active
+            if self.current_state is not None and self.state_start_time is not None:
+                duration = current_time - self.state_start_time
+                total_on_image += duration
+
+            # Reset accumulated durations and restart timing for current state
+            self.state_start_time = current_time
+
+            return total_on_image
+
+        def update_offImage_time_on_fly(self):
+            current_time = time.time()
+
+            # Calculate current accumulated time including ongoing state
+            total_off_image = self.durations_off_image
+
+            # Add time from current state if active
+            if self.current_state is not None and self.state_start_time is not None:
+                duration = current_time - self.state_start_time
+                total_off_image += duration
+
+            # Reset accumulated durations and restart timing for current state
+            self.state_start_time = current_time
+
+            return total_off_image
 
         def record_state_change(self, new_state):
             current_time = time.time()
@@ -126,7 +151,7 @@ class PauseTimeTracker:
                 print(f"Error in on_mouse_move: {e}")
 
         def get_onImage(self):
-            return self.durations_on_image
+            return self.update_onImage_time_on_fly()
 
         def get_offImage(self):
-            return self.durations_off_image
+            return self.update_offImage_time_on_fly()
