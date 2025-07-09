@@ -14,6 +14,7 @@ from .points_time import PointsTimeTracker
 from .shapes_time import ShapeTimeTracker
 from .trigger_labels import LabelsStart
 from .total_time import TotalTimer
+from .pause_time import PauseTimeTracker
 
 class TimeTrackerWidget(QWidget):
     def __init__(self, napari_viewer):
@@ -24,6 +25,7 @@ class TimeTrackerWidget(QWidget):
         self.ltt = LabelsStart(self.viewer)
 
         self.global_timer = TotalTimer()
+        self.pause_timer = PauseTimeTracker(self.viewer)
         self._export_timer = QTimer(self)
         self._export_timer.setInterval(30_000)
         self._export_timer.timeout.connect(self._export_json)
@@ -102,6 +104,14 @@ class TimeTrackerWidget(QWidget):
         self._export_yaml()
 
     def get_all_time_maps(self):
+        """
+        Collect timing data from each tracker and serialize for JSON.
+        """
+        # raw maps from each tracker
+        points_raw = self.ptt.get_time_map()
+        shapes_raw = self.stt.get_time_map()
+        labels_raw = self.ltt.get_time_map()
+
         def stringify_simple(layer_map):
             out = {}
             for layer_obj, label_times in layer_map.items():
@@ -109,29 +119,33 @@ class TimeTrackerWidget(QWidget):
                 out[key] = {int(obj_id): float(t) for obj_id, t in label_times.items()}
             return out
 
-        def stringify_labels(layer_map):
+        def stringify_triple(layer_map):
             out = {}
             for layer_obj, label_times in layer_map.items():
                 key = layer_obj.name or f"layer_{id(layer_obj)}"
-                converted = {int(obj_id): list(map(float, vals)) for obj_id, vals in label_times.items()}
+                converted = {int(obj_id): [float(v) for v in vals] for obj_id, vals in label_times.items()}
                 out[key] = converted
             return out
 
         return {
-            "points": stringify_simple(self.ptt.timeMap),
-            "shapes": stringify_simple(self.stt.timeMap),
-            "labels": stringify_labels(self.ltt.timeMap),
+            "points": stringify_simple(points_raw),
+            "shapes": stringify_triple(shapes_raw),
+            "labels": stringify_triple(labels_raw),
         }
+
 
     def _export_json(self):
         self.global_timer.update_total_time_on_fly()
+        self.pause_timer.update_total_time_on_fly()
         data = {
-            "timestamp": time.time(),
-            "global_time_seconds": self.global_timer.get_total_time(),
-            "per_layer_data": self.get_all_time_maps(),
-        }
+        "timestamp": time.time(),
+        "global_time_seconds": self.global_timer.get_total_time(),
+        "on_image_time_seconds":self.pause_timer.get_onImage(),
+        "off_image_time_seconds":self.pause_timer.get_offImage(),
+        "per_layer_data": self.get_all_time_maps(),
+            }
         if all(not v for v in data["per_layer_data"].values()):
-            return
+         return
         json_path = os.path.join(self._time_tracker_dir, 'time_tracker_data.json')
         try:
             with open(json_path, 'w') as f:
