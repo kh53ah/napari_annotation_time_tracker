@@ -2,8 +2,8 @@ import re
 import time
 import os
 import json
+import yaml  # for YAML export
 import napari
-import yaml
 from PyQt5.QtWidgets import QFileDialog
 from qtpy.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton
 from qtpy.QtCore import QTimer
@@ -26,11 +26,10 @@ class TimeTrackerWidget(QWidget):
         self._export_timer = QTimer(self)
         self._export_timer.setInterval(30_000)
         self._export_timer.timeout.connect(self._export_json)
-        self._export_timer.timeout.connect(self._export_yaml)
 
-        # create 'Time Tracker' directory next to napari installation
+                # create 'Time_Tracker' directory next to napari installation (no spaces for shell compatibility)
         napari_dir = os.path.dirname(napari.__file__)
-        self._time_tracker_dir = os.path.join(napari_dir, 'Time Tracker')
+        self._time_tracker_dir = os.path.join(napari_dir, 'Time_Tracker')
         os.makedirs(self._time_tracker_dir, exist_ok=True)
 
         # build UI
@@ -49,7 +48,6 @@ class TimeTrackerWidget(QWidget):
         self.load_btn.clicked.connect(self.load_json)
         layout.addWidget(self.load_btn)
 
-        # Save project file via Save button
         self.save_btn = QPushButton("Save")
         self.save_btn.clicked.connect(self._on_save_clicked)
         layout.addWidget(self.save_btn)
@@ -61,25 +59,20 @@ class TimeTrackerWidget(QWidget):
     def _on_selection_change(self, event):
         self.stt.disconnect_all()
         self.ltt._disconnect_handlers()
-
         selected = list(self.viewer.layers.selection)
         if len(selected) != 1:
             show_info("Select exactly one layer.")
             return
-
         layer = selected[0]
         show_info(f"Selected layer: {layer.name} ({type(layer).__name__})")
-
         if isinstance(layer, Shapes):
             self.stt.shape_connect()
         elif isinstance(layer, Points):
             self.ptt.start()
         elif isinstance(layer, Labels):
             self.ltt.start()
-        elif isinstance(layer, Image):
-            show_info("Image layers not supported.")
         else:
-            show_info("Unknown layer type.")
+            show_info("Only Shapes, Points, and Labels layers are supported.")
 
     def _on_start_stop_clicked(self):
         if self.global_timer.is_running:
@@ -100,10 +93,10 @@ class TimeTrackerWidget(QWidget):
     def _on_save_clicked(self):
         if self.global_timer.is_running:
             self.global_timer.stop_total_time()
-            self._export_timer.stop()
             show_info(f"Global timer stopped at {self.global_timer.get_total_time():.2f}s")
-        # export timing JSON + Yaml
+        # export timing JSON
         self._export_json()
+        # export full project data to YAML
         self._export_yaml()
 
     def get_all_time_maps(self):
@@ -118,9 +111,7 @@ class TimeTrackerWidget(QWidget):
             out = {}
             for layer_obj, label_times in layer_map.items():
                 key = layer_obj.name or f"layer_{id(layer_obj)}"
-                converted = {}
-                for obj_id, vals in label_times.items():
-                    converted[int(obj_id)] = [float(vals[0]), float(vals[1]), float(vals[2])]
+                converted = {int(obj_id): list(map(float, vals)) for obj_id, vals in label_times.items()}
                 out[key] = converted
             return out
 
@@ -148,18 +139,36 @@ class TimeTrackerWidget(QWidget):
             show_info(f"Failed to write JSON: {e}")
 
     def _export_yaml(self):
-        project_path = os.path.join(self._time_tracker_dir, 'time_tracker_project.yaml')
+        project = {
+            "timestamp": time.time(),
+            "global_time_seconds": self.global_timer.get_total_time(),
+            "layers": [],
+        }
+        for layer in self.viewer.layers:
+            entry = {
+                "type": layer.__class__.__name__,
+                "name": layer.name,
+                "properties": {},
+            }
+            # include data for vector layers
+            if isinstance(layer, (Shapes, Points)):
+                entry["data"] = layer.data.tolist()
+            elif isinstance(layer, Labels):
+                entry["labels"] = layer.data.tolist()
+            elif isinstance(layer, Image):
+                entry["source"] = getattr(layer, "source", None)
+            project["layers"].append(entry)
+
+        yaml_path = os.path.join(self._time_tracker_dir, 'time_tracker_project.yaml')
         try:
-            # Use the Viewer API directly, cross-platform
-            self.viewer.save_project(project_path)
-            show_info(f"Saved Napari project to {project_path}")
-
+            with open(yaml_path, 'w') as f:
+                yaml.dump(project, f, sort_keys=False)
+            show_info(f"Exported project to YAML at {yaml_path}")
         except Exception as e:
-            show_info(f"Failed to save project YAML: {e}")
-
+            show_info(f"Failed to write YAML: {e}")
 
     def load_json(self):
-        path, _ = QFileDialog.getOpenFileName(None, "Open time_tracker_data.json", "", "JSON files (*.json)")
+        path, _ = QFileDialog.getOpenFileName(None, "Open time_tracker_data.json", self._time_tracker_dir, "JSON files (*.json)")
         if not path:
             return
         try:
@@ -173,34 +182,26 @@ class TimeTrackerWidget(QWidget):
         def clean_map(raw):
             return {int(k): raw[k] if isinstance(raw[k], (list, tuple)) else float(raw[k]) for k in raw}
 
-        # reload Points
         self.ptt.timeMap.clear()
-        points_layers = [ly for ly in self.viewer.layers if isinstance(ly, Points)]
-        for key, times in per_layer.get("points", {}).items():
-            m = re.match(r".*\[(\d+)\]$", key)
-            idx = int(m.group(1)) if m else 0
-            if idx < len(points_layers):
-                self.ptt.timeMap[points_layers[idx]] = clean_map(times)
+        for idx, (key, times) in enumerate(per_layer.get("points", {}).items()):
+            layers = [ly for ly in self.viewer.layers if isinstance(ly, Points)]
+            if idx < len(layers):
+                self.ptt.timeMap[layers[idx]] = clean_map(times)
 
-        # reload Shapes
         self.stt.timeMap.clear()
-        shapes_layers = [ly for ly in self.viewer.layers if isinstance(ly, Shapes)]
-        for key, times in per_layer.get("shapes", {}).items():
-            m = re.match(r".*\[(\d+)\]$", key)
-            idx = int(m.group(1)) if m else 0
-            if idx < len(shapes_layers):
-                self.stt.timeMap[shapes_layers[idx]] = clean_map(times)
+        for idx, (key, times) in enumerate(per_layer.get("shapes", {}).items()):
+            layers = [ly for ly in self.viewer.layers if isinstance(ly, Shapes)]
+            if idx < len(layers):
+                self.stt.timeMap[layers[idx]] = clean_map(times)
 
-        # reload Labels
         self.ltt.timeMap.clear()
-        labels_layers = [ly for ly in self.viewer.layers if isinstance(ly, Labels)]
-        for key, times in per_layer.get("labels", {}).items():
-            m = re.match(r".*\[(\d+)\]$", key)
-            idx = int(m.group(1)) if m else 0
-            if idx < len(labels_layers):
-                self.ltt.timeMap[labels_layers[idx]] = clean_map(times)
+        for idx, (key, times) in enumerate(per_layer.get("labels", {}).items()):
+            layers = [ly for ly in self.viewer.layers if isinstance(ly, Labels)]
+            if idx < len(layers):
+                self.ltt.timeMap[layers[idx]] = clean_map(times)
 
         show_info("Time maps successfully loaded from JSON.")
+
 
 
 
