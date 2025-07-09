@@ -104,11 +104,7 @@ class TimeTrackerWidget(QWidget):
         show_info("Export complete. Project file ready.")
 
     def _export(self):
-        json_path = self.exporter.export_json(self._time_tracker_dir,
-                                               self.global_timer,
-                                               self.ptt.timeMap,
-                                               self.stt.timeMap,
-                                               self.ltt.timeMap)
+        json_path = self.exporter._export_json()
         if json_path:
             show_info(f"Exported JSON to {json_path}")
         else:
