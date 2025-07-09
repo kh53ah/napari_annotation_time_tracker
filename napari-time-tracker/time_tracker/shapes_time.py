@@ -194,7 +194,7 @@ class ShapeTimeTracker:
         except Exception as e:
             show_info(f"event-handler-error: {e}")
 
-    def map_time(self, t):
+    def map_time(self, start_timestamp, stop_timestamp, object_time):
         current_layer = list(self.viewer.layers.selection)[0]
         selected = current_layer.selected_data
 
@@ -205,8 +205,8 @@ class ShapeTimeTracker:
         if current_layer not in self.timeMap:
             self.timeMap[current_layer] = {}
 
-        self.timeMap[current_layer][object_id] = t
+        self.timeMap[current_layer][object_id] = object_time
         print(self.timeMap)
 
-    def get_time_map(self): #added for call in _init_ to write to JSON
+    def get_time_map(self):  #added for call in _init_ to write to JSON
         return self.timeMap
