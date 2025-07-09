@@ -4,9 +4,6 @@ import napari.viewer
 from napari.layers import Image
 from napari.utils.notifications import show_info
 
-pausen = []
-start_time_of_plugin = time.time()
-
 class PointsTimeTracker:
     """A class to track timing of point annotations in Napari."""
 
@@ -15,7 +12,6 @@ class PointsTimeTracker:
         self.points_layer = None
         self.start_time = None
         self.points_array_before = 0
-
         self.timeMap = {}
 
     def get_current_points_layer(self, viewer):
@@ -31,8 +27,8 @@ class PointsTimeTracker:
         return None  # No points layer is selected
 
     def onClick_detector(self, viewer, event):
-
-        self.start_time = time.time()
+        if event.button == 1:
+            self.start_time = time.time()
         yield
 
     def on_points_change(self, event):
@@ -41,7 +37,7 @@ class PointsTimeTracker:
 
         if points_array_after > self.points_array_before and self.start_time is not None:
             duration = time.time() - self.start_time
-
+            self.points_layer.selected_data = {points_array_after - 1}
             self.map_time(duration)
             self.points_array_before = points_array_after
             self.start_time = None
