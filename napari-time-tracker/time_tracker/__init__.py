@@ -104,10 +104,6 @@ class TimeTrackerWidget(QWidget):
         self._export_yaml()
 
     def get_all_time_maps(self):
-        """
-        Collect timing data from each tracker and serialize for JSON.
-        """
-        # raw maps from each tracker
         points_raw = self.ptt.get_time_map()
         shapes_raw = self.stt.get_time_map()
         labels_raw = self.ltt.get_time_map()
