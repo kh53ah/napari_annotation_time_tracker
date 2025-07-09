@@ -7,13 +7,13 @@ import napari
 from PyQt5.QtWidgets import QFileDialog
 from napari.plugins._npe2 import write_layers
 from qtpy.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton
-from qtpy.QtCore import QTimer
+from qtpy.QtCore    import QTimer
 from napari.utils.notifications import show_info
 from napari.layers import Shapes, Points, Labels, Image
-from .points_time import PointsTimeTracker
-from .shapes_time import ShapeTimeTracker
-from .trigger_labels import LabelsStart
-from .total_time import TotalTimer
+from .points_time     import PointsTimeTracker
+from .shapes_time     import ShapeTimeTracker
+from .trigger_labels  import LabelsStart
+from .total_time   import TotalTimer
 
 class TimeTrackerWidget(QWidget):
     def __init__(self, napari_viewer):
@@ -24,15 +24,11 @@ class TimeTrackerWidget(QWidget):
         self.ltt = LabelsStart(self.viewer)
 
         self.global_timer = TotalTimer()
-        self._export_timer = QTimer(self)
+        self._export_timer = QTimer(self) #timer for export every 60s
         self._export_timer.setInterval(30_000)
         self._export_timer.timeout.connect(self._export_json)
         self._export_timer.timeout.connect(self._export_yaml)
 
-        # create 'Time_Tracker' directory next to napari installation
-        napari_dir = os.path.dirname(napari.__file__)
-        self._time_tracker_dir = os.path.join(napari_dir, 'Time_Tracker')
-        os.makedirs(self._time_tracker_dir, exist_ok=True)
 
         # build UI
         layout = QVBoxLayout()
@@ -90,7 +86,8 @@ class TimeTrackerWidget(QWidget):
 
     def _on_reset_clicked(self):
         for tracker in (self.ptt, self.stt, self.ltt):
-            tracker.timeMap.clear()
+            if hasattr(tracker, 'timeMap'):
+                tracker.timeMap.clear()
 
     def _on_save_clicked(self):
         if self.global_timer.is_running:
@@ -125,6 +122,8 @@ class TimeTrackerWidget(QWidget):
 
     def _export_json(self):
         self.global_timer.update_total_time_on_fly()
+
+        self.global_timer.update_total_time_on_fly()  #update global timer in JSON
         data = {
             "timestamp": time.time(),
             "global_time_seconds": self.global_timer.get_total_time(),
@@ -133,6 +132,10 @@ class TimeTrackerWidget(QWidget):
         if all(not v for v in data["per_layer_data"].values()):
             return
         json_path = os.path.join(self._time_tracker_dir, 'time_tracker_data.json')
+
+        napari_dir = os.path.dirname(napari.__file__)
+        out_path = os.path.join(napari_dir, "time_tracker_data.json")
+
         try:
             with open(json_path, 'w') as f:
                 json.dump(data, f, indent=2)
@@ -202,6 +205,3 @@ class TimeTrackerWidget(QWidget):
                 self.ltt.timeMap[layers[idx]] = clean_map(times)
 
         show_info("Time maps successfully loaded from JSON.")
-
-
-

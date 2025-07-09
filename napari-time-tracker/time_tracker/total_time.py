@@ -1,11 +1,12 @@
 import time
 from napari.utils.notifications import show_info
 
+
 class TotalTimer:
     def __init__(self):
-        self.is_running = False #Check, is the timer currently running
-        self.start_time = None #Saves the last time the timer was started
-        self.total_time = 0.0 #Totals the total elapsed time
+        self.is_running = False  #Check, is the timer currently running
+        self.start_time = None  #Saves the last time the timer was started
+        self.total_time = 0.0  #Totals the total elapsed time
 
     def start_total_time(self):
         #show_info('Press Start, to begin')
@@ -14,10 +15,10 @@ class TotalTimer:
 
     def stop_total_time(self):
         self.is_running = False
-        if self.start_time is not None: #Check whether start_time is set
-                current_session_elapsed = time.time() - self.start_time
-                self.total_time += current_session_elapsed
-                self.start_time = None #Reset start time
+        if self.start_time is not None:  #Check whether start_time is set
+            current_session_elapsed = time.time() - self.start_time
+            self.total_time += current_session_elapsed
+            self.start_time = None  #Reset start time
         print(f"Total accumulated time: {self.total_time:.2f} seconds.")
 
     def update_total_time_on_fly(self):
@@ -29,9 +30,7 @@ class TotalTimer:
     def get_total_time(self):
         return self.total_time
 
-    #def reset(self): für später?
-     #   self.is_running = False
-      #  self.start_time = None
-       # self.total_time = 0.0
-
-
+    def reset(self):
+        self.is_running = False
+        self.start_time = None
+        self.total_time = 0.0
