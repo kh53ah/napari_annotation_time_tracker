@@ -87,7 +87,8 @@ class ShapeTimeTracker:
     def _on_mouse_release(self, event):
         if self.tracker_running:
             movement_time = self.tracker.stop()
-            self.map_time(movement_time)
+            self.map_time(self.tracker.remember_start, self.tracker.remember_stop, movement_time)
+            self.tracker.reset_timestamps()
             self.tracker_running = False
             self.disconnect_all()
             self.shape_connect()
@@ -100,7 +101,8 @@ class ShapeTimeTracker:
     def _on_key_press(self, event):
         if event.key == 'Escape':
             movement_time = self.tracker.stop()
-            self.map_time(movement_time)
+            self.map_time(self.tracker.remember_start, self.tracker.remember_stop, movement_time)
+            self.tracker.reset_timestamps()
             self.tracker_running = False
             self.disconnect_all()
             self.shape_connect()
@@ -117,7 +119,8 @@ class ShapeTimeTracker:
             press_duration = release_time - self._press_time
             if press_duration >= 0.3:  # drag detected 300 ms
                 movement_time = self.tracker.stop()
-                self.map_time(movement_time)
+                self.map_time(self.tracker.remember_start, self.tracker.remember_stop, movement_time)
+                self.tracker.reset_timestamps()
                 self.tracker_running = False
                 self.disconnect_all()
                 self.shape_connect()
@@ -125,7 +128,8 @@ class ShapeTimeTracker:
                 self.click_count = 1
         elif self.tracker_running and self.click_count == 1:  # second release stops time for click-based
             movement_time = self.tracker.stop()
-            self.map_time(movement_time)
+            self.map_time(self.tracker.remember_start, self.tracker.remember_stop, movement_time)
+            self.tracker.reset_timestamps()
             self.tracker_running = False
             self.click_count = 0
             self.disconnect_all()
@@ -134,7 +138,8 @@ class ShapeTimeTracker:
     def _on_dual_key(self, event):
         if event.key == 'Escape' and self.tracker_running:
             movement_time = self.tracker.stop()
-            self.map_time(movement_time)
+            self.map_time(self.tracker.remember_start, self.tracker.remember_stop,movement_time)
+            self.tracker.reset_timestamps()
             self.tracker_running = False
             self.click_count = 0
             self.disconnect_all()
@@ -143,7 +148,8 @@ class ShapeTimeTracker:
     def _on_dual_right_click(self, event):
         if event.button == 2 and self.tracker_running:
             movement_time = self.tracker.stop()
-            self.map_time(movement_time)
+            self.map_time(self.tracker.remember_start, self.tracker.remember_stop, movement_time)
+            self.tracker.reset_timestamps()
             self.tracker_running = False
             self.click_count = 0
             self.disconnect_all()
