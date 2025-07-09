@@ -5,6 +5,7 @@ import json
 import yaml  # for YAML export
 import napari
 from PyQt5.QtWidgets import QFileDialog
+from napari.plugins._npe2 import write_layers
 from qtpy.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton
 from qtpy.QtCore import QTimer
 from napari.utils.notifications import show_info
@@ -139,37 +140,32 @@ class TimeTrackerWidget(QWidget):
             show_info(f"Failed to write JSON: {e}")
 
     def _export_yaml(self):
-        project = {
-            "timestamp": time.time(),
-            "global_time_seconds": self.global_timer.get_total_time(),
-            "layers": [],
-        }
-        for layer in self.viewer.layers:
-            entry = {
-                "type": layer.__class__.__name__,
-                "name": layer.name,
-                "properties": {},
-            }
-            # include data for vector layers
-            if isinstance(layer, (Shapes, Points)):
-                raw = layer.data
-                if isinstance(raw, list):
-                    entry["data"] = [arr.tolist() if hasattr(arr, 'tolist') else arr for arr in raw]
-                else:
-                    entry["data"] = raw.tolist()
-            elif isinstance(layer, Labels):
-                entry["labels"] = layer.data.tolist()
-            elif isinstance(layer, Image):
-                entry["source"] = getattr(layer, "source", None)
-            project["layers"].append(entry)
-
-        yaml_path = os.path.join(self._time_tracker_dir, 'time_tracker_project.yaml')
         try:
+            layer_files = []
+            # export each layer to a Zarr store in the Time_Tracker directory
+            for layer in self.viewer.layers:
+                name = layer.name or layer.__class__.__name__
+                fname = f"{name}_{id(layer)}.zarr"
+                path = os.path.join(self._time_tracker_dir, fname)
+                # write each layer individually
+                write_layers(path, [layer])
+                layer_files.append((layer, path))
+
+            # build minimal YAML manifest referencing the zarr stores
+            manifest = {
+                "timestamp": time.time(),
+                "global_time_seconds": self.global_timer.get_total_time(),
+                "layers": [
+                    {"type": layer.__class__.__name__, "path": os.path.basename(path)}
+                    for layer, path in layer_files
+                ]
+            }
+            yaml_path = os.path.join(self._time_tracker_dir, 'time_tracker_project.yaml')
             with open(yaml_path, 'w') as f:
-                yaml.dump(project, f, sort_keys=False)
-            show_info(f"Exported project to YAML at {yaml_path}")
+                yaml.dump(manifest, f, sort_keys=False)
+            show_info(f"Exported YAML manifest to {yaml_path}")
         except Exception as e:
-            show_info(f"Failed to write YAML: {e}")
+            show_info(f"Failed to export YAML manifest: {e}")
 
     def load_json(self):
         path, _ = QFileDialog.getOpenFileName(None, "Open time_tracker_data.json", self._time_tracker_dir, "JSON files (*.json)")
