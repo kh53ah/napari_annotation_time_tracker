@@ -26,6 +26,7 @@ class TimeTrackerWidget(QWidget):
         self._export_timer = QTimer(self)
         self._export_timer.setInterval(30_000)
         self._export_timer.timeout.connect(self._export_json)
+        self._export_timer.timeout.connect(self._export_yaml)
 
         # create 'Time Tracker' directory next to napari installation
         napari_dir = os.path.dirname(napari.__file__)
@@ -99,14 +100,11 @@ class TimeTrackerWidget(QWidget):
     def _on_save_clicked(self):
         if self.global_timer.is_running:
             self.global_timer.stop_total_time()
+            self._export_timer.stop()
             show_info(f"Global timer stopped at {self.global_timer.get_total_time():.2f}s")
-        # export timing JSON
+        # export timing JSON + Yaml
         self._export_json()
-        # save Napari project
-        project_path = os.path.join(self._time_tracker_dir, 'time_tracker_project.yaml')
-        self.viewer.save_project(project_path)
-        show_info(f"Saved Napari project to {project_path}")
-
+        self._export_yaml()
 
     def get_all_time_maps(self):
         def stringify_simple(layer_map):
@@ -151,21 +149,12 @@ class TimeTrackerWidget(QWidget):
 
     def _export_yaml(self):
 
-        self.global_timer.update_total_time_on_fly()
-        data = {
-            "timestamp": time.time(),
-            "global_time_seconds": self.global_timer.get_total_time(),
-            "per_layer_data": self.get_all_time_maps(),
-        }
-        if all(not v for v in data["per_layer_data"].values()):
-            return
-        yaml_path = os.path.join(self._time_tracker_dir, 'time_tracker_data.yaml')
+        project_path = os.path.join(self._time_tracker_dir, 'time_tracker_project.yaml')
         try:
-            with open(yaml_path, 'w') as f:
-                yaml.dump(data, f, sort_keys=False)
-            print(f"[TimeTrackerWidget] Exported YAML to {yaml_path}")
+            self.viewer.save_project(project_path)
+            show_info(f"Saved Napari project to {project_path}")
         except Exception as e:
-            show_info(f"Failed to write YAML: {e}")
+            show_info(f"Failed to save project YAML: {e}")
 
     def load_json(self):
         path, _ = QFileDialog.getOpenFileName(None, "Open time_tracker_data.json", "", "JSON files (*.json)")
