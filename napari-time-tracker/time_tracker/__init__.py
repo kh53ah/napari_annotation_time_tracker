@@ -132,7 +132,7 @@ class TimeTrackerWidget(QWidget):
 
     def _export_json(self):
         self.global_timer.update_total_time_on_fly()
-        self.pause_timer.update_onImage_offImage_time_on_fly()
+        self.pause_timer.update_onImage_time_on_fly()
         data = {
         "timestamp": time.time(),
         "global_time_seconds": self.global_timer.get_total_time(),
