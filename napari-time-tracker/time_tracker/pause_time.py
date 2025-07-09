@@ -124,3 +124,9 @@ class PauseTimeTracker:
                 self.record_state_change(new_state)
             except Exception as e:
                 print(f"Error in on_mouse_move: {e}")
+
+        def get_onImage(self):
+            return self.durations_on_image
+
+        def get_offImage(self):
+            return self.durations_off_image
