@@ -7,7 +7,7 @@ import napari
 from PyQt5.QtWidgets import QFileDialog
 from napari.plugins._npe2 import write_layers
 from qtpy.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton
-from qtpy.QtCore import QTimer
+from qtpy.QtCore    import QTimer
 from napari.utils.notifications import show_info
 from napari.layers import Shapes, Points, Labels, Image
 from .points_time import PointsTimeTracker
@@ -63,29 +63,36 @@ class TimeTrackerWidget(QWidget):
     def _on_selection_change(self, event):
         self.stt.disconnect_all()
         self.ltt._disconnect_handlers()
+
         selected = list(self.viewer.layers.selection)
         if len(selected) != 1:
             show_info("Select exactly one layer.")
             return
+
         layer = selected[0]
         show_info(f"Selected layer: {layer.name} ({type(layer).__name__})")
+
         if isinstance(layer, Shapes):
             self.stt.shape_connect()
         elif isinstance(layer, Points):
             self.ptt.start()
         elif isinstance(layer, Labels):
             self.ltt.start()
+        elif isinstance(layer, Image):
+            show_info("Image layers not supported.")
         else:
             show_info("Only Shapes, Points, and Labels layers are supported.")
 
     def _on_start_stop_clicked(self):
         if self.global_timer.is_running:
             self.global_timer.stop_total_time()
+            self.start_stop_btn.setText("stop")
             if self._export_timer.isActive():
                 self._export_timer.stop()
             show_info(f"Global timer stopped at {self.global_timer.get_total_time():.2f}s and export paused")
         else:
             self.global_timer.start_total_time()
+            self.start_stop_btn.setText("start")
             if not self._export_timer.isActive():
                 self._export_timer.start()
             show_info("Global timer started and export timer activated")
@@ -190,6 +197,7 @@ class TimeTrackerWidget(QWidget):
             return
 
         per_layer = data.get("per_layer_data", {})
+
         def clean_map(raw):
             return {int(k): raw[k] if isinstance(raw[k], (list, tuple)) else float(raw[k]) for k in raw}
 
