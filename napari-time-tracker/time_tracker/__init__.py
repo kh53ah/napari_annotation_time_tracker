@@ -86,20 +86,30 @@ class TimeTrackerWidget(QWidget):
     def _on_start_stop_clicked(self):
         if self.global_timer.is_running:
             self.global_timer.stop_total_time()
-            self.start_stop_btn.setText("stop")
+            self.start_stop_btn.setText("start")
             if self._export_timer.isActive():
                 self._export_timer.stop()
             show_info(f"Global timer stopped at {self.global_timer.get_total_time():.2f}s and export paused")
         else:
             self.global_timer.start_total_time()
-            self.start_stop_btn.setText("start")
+            self.start_stop_btn.setText("stop")
             if not self._export_timer.isActive():
                 self._export_timer.start()
             show_info("Global timer started and export timer activated")
 
     def _on_reset_clicked(self):
+        self._export_timer.stop()
+        if self.global_timer.is_running:
+            self.start_stop_btn.setText("start")
+        else:
+            self.start_stop_btn.setText("stop")
+
         for tracker in (self.ptt, self.stt, self.ltt):
             tracker.timeMap.clear()
+        self.global_timer.reset()
+        self.viewer.layers.clear()
+        self.stt.disconnect_all()
+        self.ltt._disconnect_handlers()
 
     def _on_save_clicked(self):
         if self.global_timer.is_running:
