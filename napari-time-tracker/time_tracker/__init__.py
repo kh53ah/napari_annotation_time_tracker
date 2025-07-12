@@ -13,6 +13,7 @@ from .points_time     import PointsTimeTracker
 from .shapes_time     import ShapeTimeTracker
 from .trigger_labels  import LabelsStart
 from .total_time   import TotalTimer
+from .locked_viewer import LockedViewer
 
 class TimeTrackerWidget(QWidget):
     def __init__(self, napari_viewer):
@@ -76,16 +77,18 @@ class TimeTrackerWidget(QWidget):
     def _on_start_stop_clicked(self):
         if self.global_timer.is_running:
             self.global_timer.stop_total_time()
-            self.start_stop_btn.setText("stop")
+            self.start_stop_btn.setText("Start")
             if self._export_timer.isActive():
                 self._export_timer.stop()
             show_info(f"Global timer stopped at {self.global_timer.get_total_time():.2f}s and export paused")
+            self.viewer.set_interaction_locked(True) #locked_viewer locked
         else:
             self.global_timer.start_total_time()
-            self.start_stop_btn.setText("start")
+            self.start_stop_btn.setText("Stop")
             if not self._export_timer.isActive():
                 self._export_timer.start()
             show_info("Global timer started and export timer activated")
+            self.viewer.set_interaction_locked(False) #locked_viewer unlocked
 
     def _on_reset_clicked(self):
         for tracker in (self.ptt, self.stt, self.ltt):
