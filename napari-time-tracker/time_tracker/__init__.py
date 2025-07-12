@@ -15,6 +15,7 @@ from .trigger_labels  import LabelsStart
 from .total_time   import TotalTimer
 from .locked_viewer import LockedViewer
 
+
 class TimeTrackerWidget(QWidget):
     def __init__(self, napari_viewer):
         super().__init__()
