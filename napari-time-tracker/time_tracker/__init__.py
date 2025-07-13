@@ -17,8 +17,7 @@ from .shapes_time import ShapeTimeTracker
 from .trigger_labels import LabelsStart
 from .total_time import TotalTimer
 from .pause_time import PauseTimeTracker
-import zarr
-import zarr.storage
+
 
 
 class TimeTrackerWidget(QWidget):
@@ -254,21 +253,25 @@ class TimeTrackerWidget(QWidget):
             show_info(f"Failed to load YAML manifest: {e}")
             return
 
+        base_dir = os.path.dirname(path)
         pm = NapariPluginManager()
+
         for entry in manifest.get("layers", []):
-            layer_path = os.path.join(self._time_tracker_dir, entry["path"])
-            layer_type = entry.get("type")
-            # 1) try auto-open
+            layer_path = os.path.join(base_dir, entry.get("path", ""))
+            layer_type = entry.get("type", "Image")
+
+            # 1) Try Napari auto-open (requires napari-zarr plugin)
             try:
                 self.viewer.open(layer_path)
                 continue
             except Exception:
                 pass
-            # 2) plugin dispatcher
+
+            # 2) Plugin manager dispatch
             try:
                 reader = pm.get_reader_for_path(layer_path)
-                layers_data = reader(layer_path)
-                for data, meta in layers_data:
+                data_list = reader(layer_path)
+                for data, meta in data_list:
                     if layer_type == 'Image':
                         self.viewer.add_image(data, name=entry['path'], **meta)
                     elif layer_type == 'Labels':
@@ -277,17 +280,19 @@ class TimeTrackerWidget(QWidget):
                         self.viewer.add_points(data, name=entry['path'], **meta)
                     elif layer_type == 'Shapes':
                         self.viewer.add_shapes(data, name=entry['path'], **meta)
+                    else:
+                        self.viewer.add_image(data, name=entry['path'], **meta)
                 continue
             except Exception:
                 pass
-            # 3) fallback Zarr
+
+            # 3) Fallback direct Zarr group
             try:
-                store = zarr.storage.LocalStore(layer_path)
-                grp = zarr.open_group(store=store, mode='r')
-                key = next(iter(grp.array_keys()), None)
-                if key is None:
-                    raise RuntimeError("No array in zarr store")
-                data = grp[key][...]
+                grp = zarr.open_group(layer_path, mode='r')
+                keys = grp.array_keys()
+                if not keys:
+                    raise RuntimeError("No arrays in zarr group")
+                data = grp[keys[0]][...]
                 meta = {}
                 if layer_type == 'Image':
                     self.viewer.add_image(data, name=entry['path'], **meta)
@@ -300,5 +305,6 @@ class TimeTrackerWidget(QWidget):
                 else:
                     self.viewer.add_image(data, name=entry['path'], **meta)
             except Exception as e2:
-                show_info(f"Failed to load layer {entry['path']}: {e2}")
-        show_info("Completed YAML import.")
+                show_info(f"Failed to load layer {entry['path']} via zarr fallback: {e2}")
+
+        show_info("Completed YAML import")
