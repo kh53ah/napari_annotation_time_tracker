@@ -2,9 +2,11 @@ import re
 import time
 import os
 import json
-import yaml  # for YAML export
+import yaml
 import napari
+import zarr
 from PyQt5.QtWidgets import QFileDialog
+from napari.plugins import NapariPluginManager
 from napari.plugins._npe2 import write_layers
 from qtpy.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton
 from qtpy.QtCore    import QTimer
@@ -15,6 +17,7 @@ from .shapes_time import ShapeTimeTracker
 from .trigger_labels import LabelsStart
 from .total_time import TotalTimer
 from .pause_time import PauseTimeTracker
+
 
 class TimeTrackerWidget(QWidget):
     def __init__(self, napari_viewer):
@@ -49,6 +52,7 @@ class TimeTrackerWidget(QWidget):
         layout.addWidget(self.reset_btn)
 
         self.load_btn = QPushButton("Load timings")
+        self.load_btn.clicked.connect(self.load_yaml)
         self.load_btn.clicked.connect(self.load_json)
         layout.addWidget(self.load_btn)
 
@@ -232,5 +236,69 @@ class TimeTrackerWidget(QWidget):
 
         show_info("Time maps successfully loaded from JSON.")
 
+    def load_yaml(self):
+        path, _ = QFileDialog.getOpenFileName(
+            None,
+            "Open time_tracker_project.yaml",
+            self._time_tracker_dir,
+            "YAML files (*.yaml)"
+        )
+        if not path:
+            return
+        try:
+            with open(path) as f:
+                manifest = yaml.safe_load(f)
+        except Exception as e:
+            show_info(f"Failed to load YAML manifest: {e}")
+            return
 
-
+        pm = NapariPluginManager()
+        for entry in manifest.get("layers", []):
+            layer_path = os.path.join(self._time_tracker_dir, entry["path"])
+            layer_type = entry.get("type")
+            # 1) try auto-open
+            try:
+                self.viewer.open(layer_path)
+                continue
+            except Exception:
+                pass
+            # 2) plugin dispatcher
+            try:
+                reader = pm.get_reader_for_path(layer_path)
+                layers_data = reader(layer_path)
+                for data, meta in layers_data:
+                    if layer_type == 'Image':
+                        self.viewer.add_image(data, name=entry['path'], **meta)
+                    elif layer_type == 'Labels':
+                        self.viewer.add_labels(data, name=entry['path'], **meta)
+                    elif layer_type == 'Points':
+                        self.viewer.add_points(data, name=entry['path'], **meta)
+                    elif layer_type == 'Shapes':
+                        self.viewer.add_shapes(data, name=entry['path'], **meta)
+                    else:
+                        self.viewer.add_image(data, name=entry['path'], **meta)
+                continue
+            except Exception:
+                pass
+            # 3) fallback Zarr
+            try:
+                store = zarr.DirectoryStore(layer_path)
+                grp = zarr.open_group(store=store, mode='r')
+                key = next(iter(grp.array_keys()), None)
+                if key is None:
+                    raise RuntimeError("No array in zarr store")
+                data = grp[key][...]
+                meta = {}
+                if layer_type == 'Image':
+                    self.viewer.add_image(data, name=entry['path'], **meta)
+                elif layer_type == 'Labels':
+                    self.viewer.add_labels(data, name=entry['path'], **meta)
+                elif layer_type == 'Points':
+                    self.viewer.add_points(data, name=entry['path'], **meta)
+                elif layer_type == 'Shapes':
+                    self.viewer.add_shapes(data, name=entry['path'], **meta)
+                else:
+                    self.viewer.add_image(data, name=entry['path'], **meta)
+            except Exception as e2:
+                show_info(f"Failed to load layer {entry['path']}: {e2}")
+        show_info("Completed YAML import.")
