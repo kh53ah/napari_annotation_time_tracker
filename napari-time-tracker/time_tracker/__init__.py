@@ -17,6 +17,8 @@ from .shapes_time import ShapeTimeTracker
 from .trigger_labels import LabelsStart
 from .total_time import TotalTimer
 from .pause_time import PauseTimeTracker
+import zarr
+import zarr.storage
 
 
 class TimeTrackerWidget(QWidget):
@@ -275,14 +277,12 @@ class TimeTrackerWidget(QWidget):
                         self.viewer.add_points(data, name=entry['path'], **meta)
                     elif layer_type == 'Shapes':
                         self.viewer.add_shapes(data, name=entry['path'], **meta)
-                    else:
-                        self.viewer.add_image(data, name=entry['path'], **meta)
                 continue
             except Exception:
                 pass
             # 3) fallback Zarr
             try:
-                store = zarr.DirectoryStore(layer_path)
+                store = zarr.storage.LocalStore(layer_path)
                 grp = zarr.open_group(store=store, mode='r')
                 key = next(iter(grp.array_keys()), None)
                 if key is None:
