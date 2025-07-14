@@ -103,6 +103,12 @@ class TimeTrackerWidget(QWidget):
         self.viewer.layers.clear()
         self.stt.disconnect_all()
         self.ltt._disconnect_handlers()
+    def on_save_clicked(self):
+        if self.global_timer.is_running:
+            self.global_timer.stop_total_time()
+            show_info(f"Global timer stopped at {self.global_timer.get_total_time():.2f}s")
+        self._export_svgs()
+        self._export_json()
 
     def get_all_time_maps(self):
         points_raw = self.ptt.get_time_map()
