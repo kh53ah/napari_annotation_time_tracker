@@ -56,7 +56,7 @@ class TimeTrackerWidget(QWidget):
         layout.addWidget(self.load_json_btn)
 
         self.save_btn = QPushButton("Save")
-        self.save_btn.clicked.connect(self._on_save_clicked)
+        self.save_btn.clicked.connect(self.on_save_clicked)
         layout.addWidget(self.save_btn)
 
         self.setLayout(layout)
@@ -103,12 +103,14 @@ class TimeTrackerWidget(QWidget):
         self.viewer.layers.clear()
         self.stt.disconnect_all()
         self.ltt._disconnect_handlers()
+
+
     def on_save_clicked(self):
         if self.global_timer.is_running:
             self.global_timer.stop_total_time()
             show_info(f"Global timer stopped at {self.global_timer.get_total_time():.2f}s")
-        self._export_svgs()
-        self._export_json()
+        layer_svgs = self._export_svgs()
+        self._export_json(layer_svgs)
 
     def get_all_time_maps(self):
         points_raw = self.ptt.get_time_map()
@@ -164,37 +166,16 @@ class TimeTrackerWidget(QWidget):
 
         return svg_files
 
-    def _export_json(self):
+    def _export_json(self, layer_svgs):
         self.global_timer.update_total_time_on_fly()
-        layer_svgs = self._export_svgs()
-        data = {
-            "timestamp": time.time(),
-            "global_time_seconds": self.global_timer.get_total_time(),
-            "per_layer_data": self.get_all_time_maps(),
-            "layer_svgs": layer_svgs,
-        }
-        if all(not v for v in data["per_layer_data"].values()):
-            return
-        json_path = os.path.join(self._time_tracker_dir, 'time_tracker_data.json')
-        with open(json_path, 'w') as f:
-            json.dump(data, f, indent=2)
-        show_info(f"Exported JSON + SVGs to {json_path}")
-
-    def _export_json(self):
-        self.global_timer.update_total_time_on_fly()
-        layer_svgs = self._export_svgs()
-        data = {
-            "timestamp": time.time(),
-            "global_time_seconds": self.global_timer.get_total_time(),
-            "per_layer_data": self.get_all_time_maps(),
-            "layer_svgs": layer_svgs,
-        }
-        if all(not v for v in data["per_layer_data"].values()):
-            return
-        json_path = os.path.join(self._time_tracker_dir, 'time_tracker_data.json')
-        with open(json_path, 'w') as f:
-            json.dump(data, f, indent=2)
-        show_info(f"Exported JSON + SVGs to {json_path}")
+        data = {"timestamp": time.time(),
+                "global_time_seconds": self.global_timer.get_total_time(),
+                "per_layer_data": self.get_all_time_maps(),
+                "layer_svgs": layer_svgs}
+        if all(not v for v in data["per_layer_data"].values()): return
+        path = os.path.join(self._time_tracker_dir, 'time_tracker_data.json')
+        with open(path, 'w') as f: json.dump(data, f, indent=2)
+        show_info(f"Exported JSON + SVGs to {path}")
 
     def load_json(self):
         path, _ = QFileDialog.getOpenFileName(None, "Open time_tracker_data.json", self._time_tracker_dir,
