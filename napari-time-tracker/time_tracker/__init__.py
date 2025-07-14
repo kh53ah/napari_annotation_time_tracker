@@ -32,8 +32,7 @@ class TimeTrackerWidget(QWidget):
         self.pause_timer = PauseTimeTracker(self.viewer)
         self._export_timer = QTimer(self)
         self._export_timer.setInterval(30_000)
-        self._export_timer.timeout.connect(self._export_json)
-
+        self._export_timer.timeout.connect(self._export_cycle)
         # create 'Time_Tracker' directory next to napari installation
         napari_dir = os.path.dirname(napari.__file__)
         self._time_tracker_dir = os.path.join(napari_dir, 'Time_Tracker')
@@ -112,6 +111,10 @@ class TimeTrackerWidget(QWidget):
         layer_svgs = self._export_svgs()
         self._export_json(layer_svgs)
 
+    def _export_cycle(self):
+        layer_svgs = self._export_svgs()
+        self._export_json(layer_svgs)
+
     def get_all_time_maps(self):
         points_raw = self.ptt.get_time_map()
         shapes_raw = self.stt.get_time_map()
@@ -178,41 +181,65 @@ class TimeTrackerWidget(QWidget):
         show_info(f"Exported JSON + SVGs to {path}")
 
     def load_json(self):
-        path, _ = QFileDialog.getOpenFileName(None, "Open time_tracker_data.json", self._time_tracker_dir,
-                                              "JSON files (*.json)")
-        if not path:
-            return
-        with open(path, 'r') as f:
+        path, _ = QFileDialog.getOpenFileName(None, "Open time_tracker_data.json",
+                                              self._time_tracker_dir, "JSON files (*.json)")
+        if not path: return
+        with open(path) as f:
             data = json.load(f)
-        # First, load any SVG layers
-        for svg_name in data.get("layer_svgs", []):
-            svg_path = os.path.join(self._time_tracker_dir, svg_name)
+        # load SVG layers
+        for svg in data.get("layer_svgs", []):
+            svg_path = os.path.join(self._time_tracker_dir, svg)
             if not os.path.exists(svg_path):
-                show_info(f"SVG file not found: {svg_name}")
+                show_info(f"SVG not found: {svg}")
+                continue
+            # try opening as-is
+            try:
+                self.viewer.open(svg_path)
+                continue
+            except Exception:
+                pass
+            # fallback: rasterize SVG with QtSvg
+            try:
+                from PyQt5.QtSvg import QSvgRenderer
+                from PyQt5.QtGui import QImage, QPainter
+                renderer = QSvgRenderer(svg_path)
+                size = renderer.defaultSize()
+                img = QImage(size, QImage.Format_ARGB32)
+                img.fill(0)
+                painter = QPainter(img)
+                renderer.render(painter)
+                painter.end()
+                # convert QImage to numpy array
+                ptr = img.bits()
+                ptr.setsize(img.byteCount())
+                arr = np.frombuffer(ptr, dtype=np.uint8).reshape((img.height(), img.width(), 4))
+                # add as image layer
+                self.viewer.add_image(arr, name=svg)
+            except Exception as e:
+                show_info(f"Failed to rasterize SVG {svg}: {e}")("layer_svgs", [])
+            svg_path = os.path.join(self._time_tracker_dir, svg)
+            if not os.path.exists(svg_path):
+                show_info(f"SVG not found: {svg}")
                 continue
             try:
-                self.viewer.open(svg_path)  # load SVG layer into viewer
+                self.viewer.open(svg_path)
             except Exception as e:
-                show_info(f"Failed to load SVG {svg_name}: {e}")
-        # restore time maps (unchanged)
-        per_layer = data.get("per_layer_data", {})
+                show_info(f"Failed to open SVG {svg}: {e}")
 
-        def clean_map(raw):
-            return {int(k): raw[k] if isinstance(raw[k], (list, tuple)) else float(raw[k]) for k in raw}
+        # restore time maps
+        def clean(raw):
+            return {int(k): (raw[k] if isinstance(raw[k], (list, tuple)) else float(raw[k])) for k in raw}
 
-        self.ptt.timeMap.clear()
-        for idx, times in enumerate(per_layer.get("points", {}).values()):
-            pts_layers = [ly for ly in self.viewer.layers if isinstance(ly, Points)]
-            if idx < len(pts_layers): self.ptt.timeMap[pts_layers[idx]] = clean_map(times)
-        self.stt.timeMap.clear()
-        for idx, times in enumerate(per_layer.get("shapes", {}).values()):
-            shp_layers = [ly for ly in self.viewer.layers if isinstance(ly, Shapes)]
-            if idx < len(shp_layers): self.stt.timeMap[shp_layers[idx]] = clean_map(times)
-        self.ltt.timeMap.clear()
-        for idx, times in enumerate(per_layer.get("labels", {}).values()):
-            lbl_layers = [ly for ly in self.viewer.layers if isinstance(ly, Labels)]
-            if idx < len(lbl_layers): self.ltt.timeMap[lbl_layers[idx]] = clean_map(times)
+        self.ptt.timeMap.clear();
+        for idx, t in enumerate(data.get("per_layer_data", {}).get("points", {}).values()):
+            ls = [l for l in self.viewer.layers if isinstance(l, Points)]
+            if idx < len(ls): self.ptt.timeMap[ls[idx]] = clean(t)
+        self.stt.timeMap.clear();
+        for idx, t in enumerate(data.get("per_layer_data", {}).get("shapes", {}).values()):
+            ls = [l for l in self.viewer.layers if isinstance(l, Shapes)]
+            if idx < len(ls): self.stt.timeMap[ls[idx]] = clean(t)
+        self.ltt.timeMap.clear();
+        for idx, t in enumerate(data.get("per_layer_data", {}).get("labels", {}).values()):
+            ls = [l for l in self.viewer.layers if isinstance(l, Labels)]
+            if idx < len(ls): self.ltt.timeMap[ls[idx]] = clean(t)
         show_info("Time maps successfully loaded from JSON.")
-
-
-
