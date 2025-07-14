@@ -51,7 +51,7 @@ class TimeTrackerWidget(QWidget):
         layout.addWidget(self.reset_btn)
 
         self.load_json_btn = QPushButton("Load JSON")
-        self.load_json_btn.clicked.connect(self.load)
+        self.load_json_btn.clicked.connect(self.load_json)
         layout.addWidget(self.load_json_btn)
 
         self.save_btn = QPushButton("Save")
