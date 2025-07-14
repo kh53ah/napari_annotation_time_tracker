@@ -108,12 +108,14 @@ class TimeTrackerWidget(QWidget):
         if self.global_timer.is_running:
             self.global_timer.stop_total_time()
             show_info(f"Global timer stopped at {self.global_timer.get_total_time():.2f}s")
-        layer_svgs = self._export_svgs()
-        self._export_json(layer_svgs)
+        svgs = self._export_svgs()
+        files = self._export_data_files()
+        self._export_json(svgs, files)
 
     def _export_cycle(self):
-        layer_svgs = self._export_svgs()
-        self._export_json(layer_svgs)
+        svgs = self._export_svgs()
+        files = self._export_data_files()
+        self._export_json(svgs, files)
 
     def get_all_time_maps(self):
         points_raw = self.ptt.get_time_map()
@@ -168,78 +170,83 @@ class TimeTrackerWidget(QWidget):
             svg_files.append(svg_name)
 
         return svg_files
+    def _export_data_files(self):
+        data_files = []
+        export_dir = self._time_tracker_dir
+        os.makedirs(export_dir, exist_ok=True)
 
-    def _export_json(self, layer_svgs):
-        self.global_timer.update_total_time_on_fly()
-        data = {"timestamp": time.time(),
-                "global_time_seconds": self.global_timer.get_total_time(),
-                "per_layer_data": self.get_all_time_maps(),
-                "layer_svgs": layer_svgs}
-        if all(not v for v in data["per_layer_data"].values()): return
-        path = os.path.join(self._time_tracker_dir, 'time_tracker_data.json')
-        with open(path, 'w') as f: json.dump(data, f, indent=2)
-        show_info(f"Exported JSON + SVGs to {path}")
+        for layer in self.viewer.layers:
+            name = layer.name or layer.__class__.__name__
+            file_name = f"{name}_{id(layer)}.npy"
+            file_path = os.path.join(export_dir, file_name)
+            # save raw array (Labels and Points) or list of arrays (Shapes)
+            if isinstance(layer, Shapes):
+                np.save(file_path, layer.data, allow_pickle=True)
+            else:
+                np.save(file_path, layer.data)
+            data_files.append({"type": layer.__class__.__name__, "name": name, "file": file_name})
+        return data_files
 
-    def load_json(self):
-        path, _ = QFileDialog.getOpenFileName(None, "Open time_tracker_data.json",
-                                              self._time_tracker_dir, "JSON files (*.json)")
-        if not path: return
-        with open(path) as f:
-            data = json.load(f)
-        # load SVG layers
-        for svg in data.get("layer_svgs", []):
-            svg_path = os.path.join(self._time_tracker_dir, svg)
-            if not os.path.exists(svg_path):
-                show_info(f"SVG not found: {svg}")
-                continue
-            # try opening as-is
-            try:
-                self.viewer.open(svg_path)
-                continue
-            except Exception:
-                pass
-            # fallback: rasterize SVG with QtSvg
-            try:
-                from PyQt5.QtSvg import QSvgRenderer
-                from PyQt5.QtGui import QImage, QPainter
-                renderer = QSvgRenderer(svg_path)
-                size = renderer.defaultSize()
-                img = QImage(size, QImage.Format_ARGB32)
-                img.fill(0)
-                painter = QPainter(img)
-                renderer.render(painter)
-                painter.end()
-                # convert QImage to numpy array
-                ptr = img.bits()
-                ptr.setsize(img.byteCount())
-                arr = np.frombuffer(ptr, dtype=np.uint8).reshape((img.height(), img.width(), 4))
-                # add as image layer
-                self.viewer.add_image(arr, name=svg)
-            except Exception as e:
-                show_info(f"Failed to rasterize SVG {svg}: {e}")("layer_svgs", [])
-            svg_path = os.path.join(self._time_tracker_dir, svg)
-            if not os.path.exists(svg_path):
-                show_info(f"SVG not found: {svg}")
-                continue
-            try:
-                self.viewer.open(svg_path)
-            except Exception as e:
-                show_info(f"Failed to open SVG {svg}: {e}")
 
-        # restore time maps
-        def clean(raw):
-            return {int(k): (raw[k] if isinstance(raw[k], (list, tuple)) else float(raw[k])) for k in raw}
+def _export_json(self, layer_svgs, layer_files):
+    self.global_timer.update_total_time_on_fly()
+    data = {
+        "timestamp": time.time(),
+        "global_time_seconds": self.global_timer.get_total_time(),
+        "per_layer_data": self.get_all_time_maps(),
+        "layer_svgs": layer_svgs,
+        "layer_files": layer_files,
+    }
+    if all(not v for v in data["per_layer_data"].values()):
+        return
+    path = os.path.join(self._time_tracker_dir, 'time_tracker_data.json')
+    with open(path, 'w') as f:
+        json.dump(data, f, indent=2)
+    show_info(f"Exported JSON + SVGs + data files to {path}")
 
-        self.ptt.timeMap.clear();
-        for idx, t in enumerate(data.get("per_layer_data", {}).get("points", {}).values()):
-            ls = [l for l in self.viewer.layers if isinstance(l, Points)]
-            if idx < len(ls): self.ptt.timeMap[ls[idx]] = clean(t)
-        self.stt.timeMap.clear();
-        for idx, t in enumerate(data.get("per_layer_data", {}).get("shapes", {}).values()):
-            ls = [l for l in self.viewer.layers if isinstance(l, Shapes)]
-            if idx < len(ls): self.stt.timeMap[ls[idx]] = clean(t)
-        self.ltt.timeMap.clear();
-        for idx, t in enumerate(data.get("per_layer_data", {}).get("labels", {}).values()):
-            ls = [l for l in self.viewer.layers if isinstance(l, Labels)]
-            if idx < len(ls): self.ltt.timeMap[ls[idx]] = clean(t)
-        show_info("Time maps successfully loaded from JSON.")
+
+def load_json(self):
+    path, _ = QFileDialog.getOpenFileName(None, "Open time_tracker_data.json",
+                                          self._time_tracker_dir, "JSON files (*.json)")
+    if not path:
+        return
+    with open(path) as f:
+        data = json.load(f)
+    # clear existing layers
+    self.viewer.layers.clear()
+    # load raw layer files
+    for entry in data.get("layer_files", []):
+        ltype = entry['type']
+        name = entry['name']
+        file_name = entry['file']
+        file_path = os.path.join(self._time_tracker_dir, file_name)
+        if not os.path.exists(file_path):
+            show_info(f"Layer file missing: {file_name}")
+            continue
+        arr = np.load(file_path, allow_pickle=True)
+        if ltype == 'Shapes':
+            # arr is an object array of lists
+            shapes = [np.asarray(s) for s in arr]
+            self.viewer.add_shapes(shapes, name=name)
+        elif ltype == 'Points':
+            self.viewer.add_points(arr, name=name)
+        elif ltype == 'Labels':
+            self.viewer.add_labels(arr, name=name)
+
+    # restore time maps
+    def clean(raw):
+        return {int(k): (raw[k] if isinstance(raw[k], (list, tuple)) else float(raw[k])) for k in raw}
+
+    self.ptt.timeMap.clear()
+    for idx, t in enumerate(data.get("per_layer_data", {}).get("points", {}).values()):
+        pts_layers = [ly for ly in self.viewer.layers if isinstance(ly, Points)]
+        if idx < len(pts_layers): self.ptt.timeMap[pts_layers[idx]] = clean(t)
+    self.stt.timeMap.clear()
+    for idx, t in enumerate(data.get("per_layer_data", {}).get("shapes", {}).values()):
+        shp_layers = [ly for ly in self.viewer.layers if isinstance(ly, Shapes)]
+        if idx < len(shp_layers): self.stt.timeMap[shp_layers[idx]] = clean(t)
+    self.ltt.timeMap.clear()
+    for idx, t in enumerate(data.get("per_layer_data", {}).get("labels", {}).values()):
+        lbl_layers = [ly for ly in self.viewer.layers if isinstance(ly, Labels)]
+        if idx < len(lbl_layers): self.ltt.timeMap[lbl_layers[idx]] = clean(t)
+    show_info("Layers and time maps successfully loaded from JSON.")
