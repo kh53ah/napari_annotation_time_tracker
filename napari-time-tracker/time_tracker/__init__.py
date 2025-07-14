@@ -1,4 +1,3 @@
-# time_tracker_widget.py
 import re
 import time
 import os
@@ -13,7 +12,7 @@ from .points_time     import PointsTimeTracker
 from .shapes_time     import ShapeTimeTracker
 from .trigger_labels  import LabelsStart
 from .total_time   import TotalTimer
-from .locked_viewer import LockedViewer
+from .locked_viewer import set_editable_all_layers
 
 
 class TimeTrackerWidget(QWidget):
@@ -82,14 +81,19 @@ class TimeTrackerWidget(QWidget):
             if self._export_timer.isActive():
                 self._export_timer.stop()
             show_info(f"Global timer stopped at {self.global_timer.get_total_time():.2f}s and export paused")
-            self.viewer.set_interaction_locked(True) #locked_viewer locked
+
+            set_editable_all_layers(self.viewer, False) #locked
+            #lock_labels_layers(self.viewer)
+            show_info("Klick 'Start' to begin/ the Annotation")
         else:
             self.global_timer.start_total_time()
             self.start_stop_btn.setText("Stop")
             if not self._export_timer.isActive():
                 self._export_timer.start()
             show_info("Global timer started and export timer activated")
-            self.viewer.set_interaction_locked(False) #locked_viewer unlocked
+
+            set_editable_all_layers(self.viewer, True) #unlocked
+            #unlock_labels_layers(self.viewer)
 
     def _on_reset_clicked(self):
         for tracker in (self.ptt, self.stt, self.ltt):

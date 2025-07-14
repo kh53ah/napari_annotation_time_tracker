@@ -1,37 +1,19 @@
-import napari
-from napari.utils.notifications import show_info
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLabel
-from PyQt5.QtCore import Qt, QEvent
+from napari.layers import Labels
 
-class LockedViewer(napari.Viewer):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Deactivate the interaction immediately after starting
-        self.set_interaction_locked(True) #Start in locked state
+def set_editable_all_layers(viewer, state: bool):
+    """Sperrt oder erlaubt Annotation auf allen editierbaren Layern."""
+    for layer in viewer.layers:
+        if hasattr(layer, 'editable'):
+            layer.editable = state
 
-    def eventFilter(self, obj, event):
-        # Blocks mouse events (mouse clicks, movements, double-clicks)
-        if event.type() in (QEvent.MouseButtonPress,
-                            QEvent.MouseButtonRelease,
-                            QEvent.MouseButtonDblClick,
-                            QEvent.MouseMove):
-            return True
+def lock_labels_layers(viewer):
+    """Schaltet Labels-Layer in den Pan-Modus (nicht bearbeitbar)."""
+    for layer in viewer.layers:
+        if isinstance(layer, Labels):
+            layer.mode = 'pan_zoom'
 
-        # Blocks keyboard events
-        if event.type() in (QEvent.KeyPress,
-                            QEvent.KeyRelease):
-            return True
-
-        # For all other events: Allow normal behaviour
-        return super().eventFilter(obj, event)
-
-    def set_interaction_locked(self, locked: bool):
-        if locked:
-            self.window._qt_viewer.canvas.installEventFilter(self)
-            # and deactivate the QMainWindow itself to also lock menus
-            self.window._qt_viewer.setWindowOpacity(0.5) # Visual signalling
-            show_info("Please press “Start” to begin/continue the annotation!")
-        else:
-            self.window._qt_viewer.canvas.removeEventFilter(self)
-            self.window._qt_viewer.setWindowOpacity(1.0)
-            self.window._qt_viewer.canvas.setMouseTracking(True)
+def unlock_labels_layers(viewer):
+    """Setzt Labels-Layer zurück in den Mal-Modus (z. B. paint)."""
+    for layer in viewer.layers:
+        if isinstance(layer, Labels):
+            layer.mode = 'paint' #ACHTUNG anpassen?
