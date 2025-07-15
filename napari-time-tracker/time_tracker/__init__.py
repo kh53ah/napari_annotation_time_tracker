@@ -28,7 +28,7 @@ class TimeTrackerWidget(QWidget):
         self._export_timer.timeout.connect(self._export_json)
 
         # lock viewer
-        set_editable_all_layers(self.viewer, False)
+        #set_editable_all_layers(self.viewer, False)
         self.viewer_locked = True
 
         # build UI
@@ -55,7 +55,7 @@ class TimeTrackerWidget(QWidget):
 
     def _on_selection_change(self, event):
         if self.viewer_locked:
-            show_info("Bitte drücken Sie 'Start', um mit der Zeitmessung zu beginnen und Layer auszuwählen.")
+            show_info("Please press ‘Start’ to begin or continue the annotation!")
             if len(self.viewer.layers.selection) > 0:
                 self.viewer.layers.selection.clear()
                 return

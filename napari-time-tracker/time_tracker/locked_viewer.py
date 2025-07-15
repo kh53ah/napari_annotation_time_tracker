@@ -4,3 +4,6 @@ def set_editable_all_layers(viewer, editable):
     """
     for layer in viewer.layers:
         layer.editable = editable
+
+    if not editable:
+        viewer.layers.selection.clear()
