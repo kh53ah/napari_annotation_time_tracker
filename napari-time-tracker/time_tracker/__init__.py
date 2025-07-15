@@ -27,6 +27,9 @@ class TimeTrackerWidget(QWidget):
         self._export_timer.setInterval(30_000)
         self._export_timer.timeout.connect(self._export_json)
 
+        # lock viewer
+        set_editable_all_layers(self.viewer, False)
+        self.viewer_locked = True
 
         # build UI
         layout = QVBoxLayout()
@@ -51,6 +54,12 @@ class TimeTrackerWidget(QWidget):
         self._on_selection_change(None)
 
     def _on_selection_change(self, event):
+        if self.viewer_locked:
+            show_info("Bitte drücken Sie 'Start', um mit der Zeitmessung zu beginnen und Layer auszuwählen.")
+            if len(self.viewer.layers.selection) > 0:
+                self.viewer.layers.selection.clear()
+                return
+
         # tear down any previous handlers
         self.stt.disconnect_all()
         self.ltt._disconnect_handlers()
@@ -83,8 +92,7 @@ class TimeTrackerWidget(QWidget):
             show_info(f"Global timer stopped at {self.global_timer.get_total_time():.2f}s and export paused")
 
             set_editable_all_layers(self.viewer, False) #locked
-            #lock_labels_layers(self.viewer)
-            show_info("Klick 'Start' to begin/ the Annotation")
+            self.viewer_locked = True
         else:
             self.global_timer.start_total_time()
             self.start_stop_btn.setText("Stop")
@@ -93,7 +101,7 @@ class TimeTrackerWidget(QWidget):
             show_info("Global timer started and export timer activated")
 
             set_editable_all_layers(self.viewer, True) #unlocked
-            #unlock_labels_layers(self.viewer)
+            self.viewer_locked = False
 
     def _on_reset_clicked(self):
         for tracker in (self.ptt, self.stt, self.ltt):
