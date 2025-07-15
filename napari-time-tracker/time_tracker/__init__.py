@@ -27,10 +27,6 @@ class TimeTrackerWidget(QWidget):
         self._export_timer.setInterval(30_000)
         self._export_timer.timeout.connect(self._export_json)
 
-        # lock viewer
-        #set_editable_all_layers(self.viewer, False)
-        self.viewer_locked = True
-
         # build UI
         layout = QVBoxLayout()
         layout.addWidget(QLabel("Time tracking plugin active"))
@@ -52,13 +48,13 @@ class TimeTrackerWidget(QWidget):
         # watch layer selection
         self.viewer.layers.selection.events.changed.connect(self._on_selection_change)
         self._on_selection_change(None)
+        set_editable_all_layers(self.viewer, False)
 
     def _on_selection_change(self, event):
-        if self.viewer_locked:
+        if not self.global_timer.is_running:
             show_info("Please press ‘Start’ to begin or continue the annotation!")
-            if len(self.viewer.layers.selection) > 0:
-                self.viewer.layers.selection.clear()
-                return
+            set_editable_all_layers(self.viewer, False)
+            return
 
         # tear down any previous handlers
         self.stt.disconnect_all()
@@ -89,19 +85,16 @@ class TimeTrackerWidget(QWidget):
             self.start_stop_btn.setText("Start")
             if self._export_timer.isActive():
                 self._export_timer.stop()
+            set_editable_all_layers(self.viewer, False)
             show_info(f"Global timer stopped at {self.global_timer.get_total_time():.2f}s and export paused")
 
-            set_editable_all_layers(self.viewer, False) #locked
-            self.viewer_locked = True
         else:
             self.global_timer.start_total_time()
             self.start_stop_btn.setText("Stop")
             if not self._export_timer.isActive():
                 self._export_timer.start()
+            set_editable_all_layers(self.viewer, True)
             show_info("Global timer started and export timer activated")
-
-            set_editable_all_layers(self.viewer, True) #unlocked
-            self.viewer_locked = False
 
     def _on_reset_clicked(self):
         for tracker in (self.ptt, self.stt, self.ltt):

@@ -1,9 +1,4 @@
-def set_editable_all_layers(viewer, editable):
-    """
-    Sets the editable state for all layers in the Napari viewer.
-    """
+def set_editable_all_layers(viewer, editable: bool):
     for layer in viewer.layers:
-        layer.editable = editable
-
-    if not editable:
-        viewer.layers.selection.clear()
+        if hasattr(layer, 'editable'):
+            layer.editable = editable
