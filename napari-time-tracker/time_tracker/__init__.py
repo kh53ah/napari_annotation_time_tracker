@@ -52,7 +52,7 @@ class TimeTrackerWidget(QWidget):
 
     def _on_selection_change(self, event):
         if not self.global_timer.is_running:
-            show_info("Please press ‘Start’ to begin or continue the annotation!")
+            show_info("Please press ‘Start’ to begin or continue the Annotation!")
             set_editable_all_layers(self.viewer, False)
             return
 
