@@ -63,6 +63,10 @@ class TimeTrackerWidget(QWidget):
         self.save_btn.clicked.connect(self.on_save_clicked)
         layout.addWidget(self.save_btn)
 
+        self.show_histogram_btn = QPushButton("Show Result")
+        self.show_histogram_btn.clicked.connect(self.show_histogram)
+        layout.addWidget(self.show_histogram_btn)
+
         self.setLayout(layout)
 
         # watch layer selection
@@ -270,3 +274,6 @@ class TimeTrackerWidget(QWidget):
             layers = [ly for ly in self.viewer.layers if isinstance(ly, Labels)]
             if idx < len(layers): self.ltt.timeMap[layers[idx]] = clean(t)
         show_info("Layers and time maps successfully loaded from JSON.")
+
+    def show_histogram(self):
+        pass
