@@ -21,6 +21,7 @@ from .trigger_labels import LabelsStart
 from .total_time import TotalTimer
 from .pause_time import PauseTimeTracker
 from .locked_viewer import set_editable_all_layers
+from .display_histogram import start_dash_app
 
 
 class TimeTrackerWidget(QWidget):
@@ -276,4 +277,4 @@ class TimeTrackerWidget(QWidget):
         show_info("Layers and time maps successfully loaded from JSON.")
 
     def show_histogram(self):
-        pass
+        start_dash_app(self._time_tracker_dir)
