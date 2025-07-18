@@ -1,3 +1,4 @@
+# time_tracker_widget.py
 import re
 import time
 import os
@@ -19,6 +20,8 @@ from .shapes_time import ShapeTimeTracker
 from .trigger_labels import LabelsStart
 from .total_time import TotalTimer
 from .pause_time import PauseTimeTracker
+from .locked_viewer import set_editable_all_layers
+
 
 class TimeTrackerWidget(QWidget):
     def __init__(self, napari_viewer):
@@ -37,6 +40,8 @@ class TimeTrackerWidget(QWidget):
         napari_dir = os.path.dirname(napari.__file__)
         self._time_tracker_dir = os.path.join(napari_dir, 'Time_Tracker')
         os.makedirs(self._time_tracker_dir, exist_ok=True)
+
+
 
         # build UI
         layout = QVBoxLayout()
@@ -59,24 +64,38 @@ class TimeTrackerWidget(QWidget):
         layout.addWidget(self.save_btn)
 
         self.setLayout(layout)
+
+        # watch layer selection
         self.viewer.layers.selection.events.changed.connect(self._on_selection_change)
         self._on_selection_change(None)
+        set_editable_all_layers(self.viewer, False)
 
     def _on_selection_change(self, event):
+        if not self.global_timer.is_running:
+            show_info("Please press ‘Start’ to begin or continue the Annotation!")
+            set_editable_all_layers(self.viewer, False)
+            return
+
+        # tear down any previous handlers
         self.stt.disconnect_all()
         self.ltt._disconnect_handlers()
+
         selected = list(self.viewer.layers.selection)
         if len(selected) != 1:
             show_info("Select exactly one layer.")
             return
+
         layer = selected[0]
         show_info(f"Selected layer: {layer.name} ({type(layer).__name__})")
+
         if isinstance(layer, Shapes):
             self.stt.shape_connect()
         elif isinstance(layer, Points):
             self.ptt.start()
         elif isinstance(layer, Labels):
             self.ltt.start()
+        elif isinstance(layer, Image):
+            show_info("Image layers not supported.")
         else:
             show_info("Only Shapes, Points, and Labels layers are supported.")
 
@@ -86,12 +105,14 @@ class TimeTrackerWidget(QWidget):
             self.start_stop_btn.setText("Start")
             if self._export_timer.isActive():
                 self._export_timer.stop()
+            set_editable_all_layers(self.viewer, False)
             show_info(f"Global timer stopped at {self.global_timer.get_total_time():.2f}s and export paused")
         else:
             self.global_timer.start_total_time()
             self.start_stop_btn.setText("Stop")
             if not self._export_timer.isActive():
                 self._export_timer.start()
+            set_editable_all_layers(self.viewer, True)
             show_info("Global timer started and export timer activated")
 
     def _on_reset_clicked(self):
@@ -198,6 +219,7 @@ class TimeTrackerWidget(QWidget):
             "layer_svgs": layer_svgs,
             "layer_files": layer_files,
         }
+        # Skip if no timing recorded
         if all(not v for v in data["per_layer_data"].values()):
             return
         path = os.path.join(self._time_tracker_dir, 'time_tracker_data.json')
