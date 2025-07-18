@@ -28,10 +28,3 @@ class TotalTimer:
 
     def get_total_time(self):
         return self.total_time
-
-    #def reset(self): für später?
-     #   self.is_running = False
-      #  self.start_time = None
-       # self.total_time = 0.0
-
-
