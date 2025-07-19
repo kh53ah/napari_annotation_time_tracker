@@ -21,6 +21,7 @@ from .trigger_labels import LabelsStart
 from .total_time import TotalTimer
 from .pause_time import PauseTimeTracker
 from .locked_viewer import set_editable_all_layers
+from .display_histogram import start_dash_app
 
 
 class TimeTrackerWidget(QWidget):
@@ -62,6 +63,10 @@ class TimeTrackerWidget(QWidget):
         self.save_btn = QPushButton("Save")
         self.save_btn.clicked.connect(self.on_save_clicked)
         layout.addWidget(self.save_btn)
+
+        self.show_histogram_btn = QPushButton("Show Result")
+        self.show_histogram_btn.clicked.connect(self.show_histogram)
+        layout.addWidget(self.show_histogram_btn)
 
         self.setLayout(layout)
 
@@ -270,3 +275,6 @@ class TimeTrackerWidget(QWidget):
             layers = [ly for ly in self.viewer.layers if isinstance(ly, Labels)]
             if idx < len(layers): self.ltt.timeMap[layers[idx]] = clean(t)
         show_info("Layers and time maps successfully loaded from JSON.")
+
+    def show_histogram(self):
+        start_dash_app(self._time_tracker_dir)
