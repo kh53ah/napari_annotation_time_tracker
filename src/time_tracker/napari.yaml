@@ -1,0 +1,10 @@
+name: napari-time-tracker
+display_name: Time Tracker
+contributions:
+  commands:
+    - id: napari-time-tracker.time_tracking
+      title: Track internal time of different layers
+      python_name: time_tracker.__init__:TimeTrackerWidget
+  widgets:
+    - command: napari-time-tracker.time_tracking  # note, same as command.id above
+      display_name: TT
