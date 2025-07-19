@@ -11,20 +11,39 @@ import webbrowser
 
 
 def start_dash_app(path):
-    print(f"Starte Dash-App mit path={path}")
-
     def run_dash():
+
+        def extract_points_values(points_data):
+            values = []
+            for layer_name, layer_content in points_data.items():
+                for obj_id, val in layer_content.items():
+                    if val is not None:
+                        values.append(float(val))
+            return values
+
+        def extract_third_values(layer_data):
+            values = []
+            for layer_name, layer_content in layer_data.items():
+                for obj_id, vals in layer_content.items():
+                    if isinstance(vals, list) and len(vals) >= 3:
+                        values.append(float(vals[2]))
+            return values
+
         json_filepath = os.path.join(path, "time_tracker_data.json")
         with open(json_filepath, "r") as f:
             data = json.load(f)
 
-        # Zugriff auf per_layer_data (die TimeMaps)
         per_layer_data = data.get("per_layer_data", {})
+
+        points_values = extract_points_values(per_layer_data.get("points", {}))
+        shapes_values = extract_third_values(per_layer_data.get("shapes", {}))
+        labels_values = extract_third_values(per_layer_data.get("labels", {}))
+        all_values = points_values + shapes_values + labels_values
 
         app = dash.Dash(__name__)
 
         # Formatieren der Name der CSV Dateien, die im Dropdown angezeigt werden sollen und speichern in einer Liste
-        dropdown_options = [{"label": "Points", "value": "Points"}, {"label": "Shapes", "value": "Shapes"},
+        dropdown_options = [{"label": "All", "value": "All"}, {"label": "Points", "value": "Points"}, {"label": "Shapes", "value": "Shapes"},
                             {"label": "Labels", "value": "Labels"}]
 
         app.layout = html.Div([
@@ -33,7 +52,7 @@ def start_dash_app(path):
             dcc.Dropdown(
                 id='Layer-dropdown',
                 options=dropdown_options,
-                value='Points'
+                value='All'
             ),
 
             dcc.Graph(id='Histogram-graph')
@@ -43,26 +62,24 @@ def start_dash_app(path):
             Output('Histogram-graph', 'figure'),
             Input('Layer-dropdown', 'value')
         )
-        def update_graph(selected_layer):
-            layer_data = per_layer_data.get(selected_layer, {})
-            all_times = []
+        def update_graph(selected):
+            if selected == "Points":
+                values = points_values
+            elif selected == "Shapes":
+                values = shapes_values
+            elif selected == "Labels":
+                values = labels_values
+            elif selected == "All":
+                values = all_values
+            else:
+                values = []
+            print(f"Selected layer: {selected}, Values: {values}")
 
-            for layer_name, obj_times in layer_data.items():
-                for obj_id, time_value in obj_times.items():
-                    if isinstance(time_value, list):  # shapes or labels
-                        time_in_seconds = time_value[2] - time_value[0]
-                    else:
-                        time_in_seconds = time_value
-                    all_times.append(round(time_in_seconds))
-
-            if not all_times:
-                return px.histogram(title="No data available")
-
-            df = pd.DataFrame({"AnnotationTime_sec": all_times})
-            fig = px.histogram(df, x='delta', y='frequency', nbins=20, title=f"{selected_layer.capitalize()} Annotation Time")
+            df = pd.DataFrame({"time": values})
+            fig = px.histogram(df, x='time', nbins=20,
+                               title=f"{selected.capitalize()} Annotation Time")
             fig.update_layout(
-                xaxis_title='Object_time',
-                yaxis_title='Frequency of Occurrences'
+                xaxis_title='object annotation time'
             )
             return fig
 
