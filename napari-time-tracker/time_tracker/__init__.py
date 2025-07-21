@@ -217,9 +217,13 @@ class TimeTrackerWidget(QWidget):
 
     def _export_json(self, layer_svgs, layer_files):
         self.global_timer.update_total_time_on_fly()
+        on_time = self.pause_timer.get_onImage()
+        off_time = self.pause_timer.get_offImage()
         data = {
             "timestamp": time.time(),
             "global_time_seconds": self.global_timer.get_total_time(),
+            "on_image_time_seconds": on_time,
+            "off_image_time_seconds": off_time,
             "per_layer_data": self.get_all_time_maps(),
             "layer_svgs": layer_svgs,
             "layer_files": layer_files,
@@ -235,7 +239,7 @@ class TimeTrackerWidget(QWidget):
     def load_json(self):
         """Load raw layer data and timing from JSON manifest."""
         path, _ = QFileDialog.getOpenFileName(None, "Open time_tracker_data.json",
-                                              self._time_tracker_dir, "JSON files (*.json)")
+                                                  self._time_tracker_dir, "JSON files (*.json)")
         if not path:
             return
         with open(path) as f:
@@ -262,22 +266,25 @@ class TimeTrackerWidget(QWidget):
             elif ltype == 'Labels':
                 self.viewer.add_labels(arr, name=name)
 
-        def clean(raw):
-            return {int(k): raw[k] if isinstance(raw[k], (list, tuple)) else float(raw[k]) for k in raw}
+            def clean(raw):
+                return {int(k): raw[k] if isinstance(raw[k], (list, tuple)) else float(raw[k]) for k in raw}
+            self.ptt.timeMap.clear()
+            for idx, t in enumerate(data.get("per_layer_data", {}).get("points", {}).values()):
+                layers = [ly for ly in self.viewer.layers if isinstance(ly, Points)]
+                if idx < len(layers): self.ptt.timeMap[layers[idx]] = clean(t)
+            self.stt.timeMap.clear()
+            for idx, t in enumerate(data.get("per_layer_data", {}).get("shapes", {}).values()):
+                layers = [ly for ly in self.viewer.layers if isinstance(ly, Shapes)]
+                if idx < len(layers): self.stt.timeMap[layers[idx]] = clean(t)
+            self.ltt.timeMap.clear()
+            for idx, t in enumerate(data.get("per_layer_data", {}).get("labels", {}).values()):
+                layers = [ly for ly in self.viewer.layers if isinstance(ly, Labels)]
+                if idx < len(layers): self.ltt.timeMap[layers[idx]] = clean(t)
 
-        self.ptt.timeMap.clear()
-        for idx, t in enumerate(data.get("per_layer_data", {}).get("points", {}).values()):
-            layers = [ly for ly in self.viewer.layers if isinstance(ly, Points)]
-            if idx < len(layers): self.ptt.timeMap[layers[idx]] = clean(t)
-        self.stt.timeMap.clear()
-        for idx, t in enumerate(data.get("per_layer_data", {}).get("shapes", {}).values()):
-            layers = [ly for ly in self.viewer.layers if isinstance(ly, Shapes)]
-            if idx < len(layers): self.stt.timeMap[layers[idx]] = clean(t)
-        self.ltt.timeMap.clear()
-        for idx, t in enumerate(data.get("per_layer_data", {}).get("labels", {}).values()):
-            layers = [ly for ly in self.viewer.layers if isinstance(ly, Labels)]
-            if idx < len(layers): self.ltt.timeMap[layers[idx]] = clean(t)
-        show_info("Layers and time maps successfully loaded from JSON.")
+            self.pause_timer.durations_on_image = data.get("on_image_time_seconds", 0)
+            self.pause_timer.durations_off_image = data.get("off_image_time_seconds", 0)
+
+            show_info("Annotation layers, time maps, and on/off-image durations restored.")
 
     def show_histogram(self):
         start_dash_app(self._time_tracker_dir)
