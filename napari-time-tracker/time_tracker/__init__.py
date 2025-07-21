@@ -240,7 +240,10 @@ class TimeTrackerWidget(QWidget):
             return
         with open(path) as f:
             data = json.load(f)
-        self.viewer.layers.clear()
+        from napari.layers import Image
+        for layer in list(self.viewer.layers):
+            if not isinstance(layer, Image):
+                self.viewer.layers.remove(layer)
         for entry in data.get("layer_files", []):
             ltype = entry['type']
             name = entry['name']
