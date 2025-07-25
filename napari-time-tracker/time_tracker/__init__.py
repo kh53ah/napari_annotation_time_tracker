@@ -118,6 +118,7 @@ class TimeTrackerWidget(QWidget):
 
     def _on_reset_clicked(self):
         self._export_timer.stop()
+        self.start_stop_btn.setText("Start / Stop")
         for tracker in (self.ptt, self.stt, self.ltt):
             tracker.timeMap.clear()
         self.global_timer.reset()
