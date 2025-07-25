@@ -19,7 +19,6 @@ class TotalTimer:
             current_session_elapsed = time.time() - self.start_time
             self.total_time += current_session_elapsed
             self.start_time = None  #Reset start time
-        print(f"Total accumulated time: {self.total_time:.2f} seconds.")
 
     def update_total_time_on_fly(self):
         if self.is_running and self.start_time is not None:

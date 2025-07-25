@@ -46,7 +46,6 @@ class TimeTrackerWidget(QWidget):
 
         # build UI
         layout = QVBoxLayout()
-        layout.addWidget(QLabel("Time tracking plugin active"))
 
         self.start_stop_btn = QPushButton("Start / Stop")
         self.start_stop_btn.clicked.connect(self._on_start_stop_clicked)
@@ -91,7 +90,6 @@ class TimeTrackerWidget(QWidget):
             return
 
         layer = selected[0]
-        show_info(f"Selected layer: {layer.name} ({type(layer).__name__})")
 
         if isinstance(layer, Shapes):
             self.stt.shape_connect()
@@ -111,14 +109,12 @@ class TimeTrackerWidget(QWidget):
             if self._export_timer.isActive():
                 self._export_timer.stop()
             set_editable_all_layers(self.viewer, False)
-            show_info(f"Global timer stopped at {self.global_timer.get_total_time():.2f}s and export paused")
         else:
             self.global_timer.start_total_time()
             self.start_stop_btn.setText("Stop")
             if not self._export_timer.isActive():
                 self._export_timer.start()
             set_editable_all_layers(self.viewer, True)
-            show_info("Global timer started and export timer activated")
 
     def _on_reset_clicked(self):
         self._export_timer.stop()
@@ -133,7 +129,6 @@ class TimeTrackerWidget(QWidget):
     def on_save_clicked(self):
         if self.global_timer.is_running:
             self.global_timer.stop_total_time()
-            show_info(f"Global timer stopped at {self.global_timer.get_total_time():.2f}s")
         svgs = self._export_svgs()
         files = self._export_data_files()
         self._export_json(svgs, files)
