@@ -46,7 +46,6 @@ class TimeTrackerWidget(QWidget):
 
         # build UI
         layout = QVBoxLayout()
-        layout.addWidget(QLabel("Time tracking plugin active"))
 
         self.start_stop_btn = QPushButton("Start / Stop")
         self.start_stop_btn.clicked.connect(self._on_start_stop_clicked)
