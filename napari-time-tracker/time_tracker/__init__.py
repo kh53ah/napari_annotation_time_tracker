@@ -228,9 +228,7 @@ class TimeTrackerWidget(QWidget):
             "layer_svgs": layer_svgs,
             "layer_files": layer_files,
         }
-        # Skip if no timing recorded
-        if all(not v for v in data["per_layer_data"].values()):
-            return
+
         path = os.path.join(self._time_tracker_dir, 'time_tracker_data.json')
         with open(path, 'w') as f:
             json.dump(data, f, indent=2)
