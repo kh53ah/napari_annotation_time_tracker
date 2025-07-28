@@ -130,9 +130,15 @@ class TimeTrackerWidget(QWidget):
     def on_save_clicked(self):
         if self.global_timer.is_running:
             self.global_timer.stop_total_time()
-        svgs = self._export_svgs()
-        files = self._export_data_files()
-        self._export_json(svgs, files)
+        user_dir = QFileDialog.getExistingDirectory(self, "Select Save Directory")
+        if not user_dir:
+            return
+        for target_dir in [self._time_tracker_dir, user_dir]:
+            svgs = self._export_svgs(target_dir)
+            files = self._export_data_files(target_dir)
+            self._export_json(svgs, files, target_dir)
+
+        show_info(f"Saved data to: {user_dir} and {self._time_tracker_dir}")
 
     def _export_cycle(self):
         svgs = self._export_svgs()
