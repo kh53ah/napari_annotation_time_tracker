@@ -161,9 +161,8 @@ class TimeTrackerWidget(QWidget):
             "labels": stringify_triple(labels_raw),
         }
 
-    def _export_svgs(self):
+    def _export_svgs(self, export_dir):
         svg_files = []
-        export_dir = self._time_tracker_dir
         os.makedirs(export_dir, exist_ok=True)
 
         for layer in self.viewer.layers:
@@ -195,10 +194,8 @@ class TimeTrackerWidget(QWidget):
             svg_files.append(svg_name)
         return svg_files
 
-    def _export_data_files(self):
-        #Export each non-image layer’s raw data to .npy for accurate re-import.
+    def _export_data_files(self, export_dir):
         data_files = []
-        export_dir = self._time_tracker_dir
         os.makedirs(export_dir, exist_ok=True)
 
         for layer in self.viewer.layers:
@@ -217,7 +214,7 @@ class TimeTrackerWidget(QWidget):
             data_files.append(entry)
         return data_files
 
-    def _export_json(self, layer_svgs, layer_files):
+    def _export_json(self, layer_svgs, layer_files, export_dir):
         self.global_timer.update_total_time_on_fly()
         on_time = self.pause_timer.get_onImage()
         off_time = self.pause_timer.get_offImage()
@@ -231,7 +228,7 @@ class TimeTrackerWidget(QWidget):
             "layer_files": layer_files,
         }
 
-        path = os.path.join(self._time_tracker_dir, 'time_tracker_data.json')
+        path = os.path.join(export_dir, 'time_tracker_data.json')
         with open(path, 'w') as f:
             json.dump(data, f, indent=2)
         show_info(f"Exported JSON + SVGs + data files to {path}")
