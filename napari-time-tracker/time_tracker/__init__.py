@@ -153,7 +153,7 @@ class TimeTrackerWidget(QWidget):
         def stringify_simple(layer_map):
             return {layer.name or f"layer_{id(layer)}": {int(obj): float(t) for obj, t in times.items()} for layer, times in layer_map.items()}
         def stringify_triple(layer_map):
-            return {layer.name or f"layer_{id(layer)}": {int(obj): [float(v) for v in vals] for obj, vals in times.items()} for layer, times in layer_map.items()}
+            return {layer.name or f"layer_{id(layer)}": {int(obj): [float(v) if v is not None else 0.0 for v in vals ] for obj, vals in times.items()} for layer, times in layer_map.items()} #if data point is None set to 0.0
 
         return {
             "points": stringify_simple(points_raw),
