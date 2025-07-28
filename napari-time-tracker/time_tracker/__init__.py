@@ -151,9 +151,26 @@ class TimeTrackerWidget(QWidget):
         labels_raw = self.ltt.get_time_map()
 
         def stringify_simple(layer_map):
-            return {layer.name or f"layer_{id(layer)}": {int(obj): float(t) for obj, t in times.items()} for layer, times in layer_map.items()}
+            # Converts time map to: {layer_name: {obj_id: time_in_seconds}}
+            return {
+                layer.name or f"layer_{id(layer)}": {
+                    int(obj): float(t)
+                    for obj, t in times.items()
+                    if t is not None  # skip incomplete entries
+                }
+                for layer, times in layer_map.items()
+            }
+
         def stringify_triple(layer_map):
-            return {layer.name or f"layer_{id(layer)}": {int(obj): [float(v) if v is not None else 0.0 for v in vals ] for obj, vals in times.items()} for layer, times in layer_map.items()} #if data point is None set to 0.0
+            # Converts time map to: {layer_name: {obj_id: [start_time, end_time, duration]}}
+            return {
+                layer.name or f"layer_{id(layer)}": {
+                    int(obj): [float(v) for v in vals]
+                    for obj, vals in times.items()
+                    if vals is not None and all(v is not None for v in vals)  # skip incomplete
+                }
+                for layer, times in layer_map.items()
+            }
 
         return {
             "points": stringify_simple(points_raw),
