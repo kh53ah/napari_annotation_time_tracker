@@ -141,9 +141,9 @@ class TimeTrackerWidget(QWidget):
         show_info(f"Saved data to: {user_dir} and {self._time_tracker_dir}")
 
     def _export_cycle(self):
-        svgs = self._export_svgs()
-        files = self._export_data_files()
-        self._export_json(svgs, files)
+        svgs = self._export_svgs(self._time_tracker_dir)
+        files = self._export_data_files(self._time_tracker_dir)
+        self._export_json(svgs, files,self._time_tracker_dir)
 
     def get_all_time_maps(self):
         points_raw = self.ptt.get_time_map()
