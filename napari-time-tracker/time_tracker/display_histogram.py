@@ -61,7 +61,6 @@ def start_dash_app(path):
                         values.append(float(vals[2]))
             return values
 
-        # Load time tracking data from JSON
         json_filepath = os.path.join(path, "time_tracker_data.json")
         with open(json_filepath, "r") as f:
             data = json.load(f)
@@ -74,10 +73,8 @@ def start_dash_app(path):
         labels_values = extract_third_values(per_layer_data.get("labels", {}))
         all_values = points_values + shapes_values + labels_values
 
-        # Create Dash app instance
         app = dash.Dash(__name__)
 
-        # Dropdown menu options
         dropdown_options = [
             {"label": "All", "value": "All"},
             {"label": "Points", "value": "Points"},
@@ -85,7 +82,6 @@ def start_dash_app(path):
             {"label": "Labels", "value": "Labels"}
         ]
 
-        # App layout: Title, dropdown, and histogram
         app.layout = html.Div([
             html.H1("Histogram of Annotation Time"),
 
@@ -133,9 +129,7 @@ def start_dash_app(path):
             )
             return fig
 
-        # Start Dash app server
         app.run(debug=True, use_reloader=False)  # Default port is 8050
 
-    # Run the Dash app in a separate thread and open it in the browser
     threading.Thread(target=run_dash, daemon=True).start()
     webbrowser.open("http://127.0.0.1:8050")
