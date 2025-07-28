@@ -1,5 +1,4 @@
 import time
-from magicgui import magicgui
 from napari.viewer import Viewer
 from qtpy.QtCore import QTimer
 

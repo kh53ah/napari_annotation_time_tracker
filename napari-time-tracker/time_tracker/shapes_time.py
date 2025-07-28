@@ -126,7 +126,6 @@ class ShapeTimeTracker:
             self.end_and_reconnect()
 
     def _on_mode_change(self, event):
-        show_info(f"Tool changed: {list(self.viewer.layers.selection)[0].mode}")
         print(self.timeMap)
         self.disconnect_all()
         self.shape_connect()

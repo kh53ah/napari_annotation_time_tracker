@@ -23,13 +23,10 @@ class LabelsStart(QObject):
     def start(self):
         layer = self.viewer.layers.selection.active
         if not isinstance(layer, Labels):
-            show_info("Please select a Labels layer to track.")
             return
         if self._mode_conn is None:
             self._mode_conn = layer.events.mode.connect(self._on_mode_change)
         self._attach_handlers()
-
-        show_info("Label time tracking started. Switch to an annotation tool to begin timing.")
 
     def _attach_handlers(self):
         canvas = self.viewer.window.qt_viewer.canvas
@@ -64,6 +61,8 @@ class LabelsStart(QObject):
 
     def _on_press(self, event):
         layer = self.viewer.layers.selection.active
+        if not isinstance(layer, Labels):
+            return
         mode = Mode(layer.mode)
         if mode not in (Mode.PAINT, Mode.FILL, Mode.ERASE, Mode.POLYGON):
             return
