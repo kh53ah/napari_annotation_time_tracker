@@ -61,6 +61,8 @@ class LabelsStart(QObject):
 
     def _on_press(self, event):
         layer = self.viewer.layers.selection.active
+        if not isinstance(layer, Labels):
+            return
         mode = Mode(layer.mode)
         if mode not in (Mode.PAINT, Mode.FILL, Mode.ERASE, Mode.POLYGON):
             return

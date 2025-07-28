@@ -130,14 +130,20 @@ class TimeTrackerWidget(QWidget):
     def on_save_clicked(self):
         if self.global_timer.is_running:
             self.global_timer.stop_total_time()
-        svgs = self._export_svgs()
-        files = self._export_data_files()
-        self._export_json(svgs, files)
+        user_dir = QFileDialog.getExistingDirectory(self, "Select Save Directory")
+        if not user_dir:
+            return
+        for target_dir in [self._time_tracker_dir, user_dir]:
+            svgs = self._export_svgs(target_dir)
+            files = self._export_data_files(target_dir)
+            self._export_json(svgs, files, target_dir)
+
+        show_info(f"Saved data to: {user_dir} and {self._time_tracker_dir}")
 
     def _export_cycle(self):
-        svgs = self._export_svgs()
-        files = self._export_data_files()
-        self._export_json(svgs, files)
+        svgs = self._export_svgs(self._time_tracker_dir)
+        files = self._export_data_files(self._time_tracker_dir)
+        self._export_json(svgs, files,self._time_tracker_dir)
 
     def get_all_time_maps(self):
         points_raw = self.ptt.get_time_map()
@@ -145,9 +151,26 @@ class TimeTrackerWidget(QWidget):
         labels_raw = self.ltt.get_time_map()
 
         def stringify_simple(layer_map):
-            return {layer.name or f"layer_{id(layer)}": {int(obj): float(t) for obj, t in times.items()} for layer, times in layer_map.items()}
+            # Converts time map to: {layer_name: {obj_id: time_in_seconds}}
+            return {
+                layer.name or f"layer_{id(layer)}": {
+                    int(obj): float(t)
+                    for obj, t in times.items()
+                    if t is not None  # skip incomplete entries
+                }
+                for layer, times in layer_map.items()
+            }
+
         def stringify_triple(layer_map):
-            return {layer.name or f"layer_{id(layer)}": {int(obj): [float(v) for v in vals] for obj, vals in times.items()} for layer, times in layer_map.items()}
+            # Converts time map to: {layer_name: {obj_id: [start_time, end_time, duration]}}
+            return {
+                layer.name or f"layer_{id(layer)}": {
+                    int(obj): [float(v) for v in vals]
+                    for obj, vals in times.items()
+                    if vals is not None and all(v is not None for v in vals)  # skip incomplete
+                }
+                for layer, times in layer_map.items()
+            }
 
         return {
             "points": stringify_simple(points_raw),
@@ -155,9 +178,8 @@ class TimeTrackerWidget(QWidget):
             "labels": stringify_triple(labels_raw),
         }
 
-    def _export_svgs(self):
+    def _export_svgs(self, export_dir):
         svg_files = []
-        export_dir = self._time_tracker_dir
         os.makedirs(export_dir, exist_ok=True)
 
         for layer in self.viewer.layers:
@@ -189,10 +211,8 @@ class TimeTrackerWidget(QWidget):
             svg_files.append(svg_name)
         return svg_files
 
-    def _export_data_files(self):
-        #Export each non-image layer’s raw data to .npy for accurate re-import.
+    def _export_data_files(self, export_dir):
         data_files = []
-        export_dir = self._time_tracker_dir
         os.makedirs(export_dir, exist_ok=True)
 
         for layer in self.viewer.layers:
@@ -211,7 +231,7 @@ class TimeTrackerWidget(QWidget):
             data_files.append(entry)
         return data_files
 
-    def _export_json(self, layer_svgs, layer_files):
+    def _export_json(self, layer_svgs, layer_files, export_dir):
         self.global_timer.update_total_time_on_fly()
         on_time = self.pause_timer.get_onImage()
         off_time = self.pause_timer.get_offImage()
@@ -224,10 +244,8 @@ class TimeTrackerWidget(QWidget):
             "layer_svgs": layer_svgs,
             "layer_files": layer_files,
         }
-        # Skip if no timing recorded
-        if all(not v for v in data["per_layer_data"].values()):
-            return
-        path = os.path.join(self._time_tracker_dir, 'time_tracker_data.json')
+
+        path = os.path.join(export_dir, 'time_tracker_data.json')
         with open(path, 'w') as f:
             json.dump(data, f, indent=2)
         show_info(f"Exported JSON + SVGs + data files to {path}")
