@@ -73,6 +73,10 @@ class ShapeTimeTracker:
             case _:
                 show_info(f"Tool '{shape_layer_mode}' unsupported")
 
+        if self._connected_shape_layer is not None:
+            # schon verbunden mit anderen Events
+            self._connected_shape_layer.events.data.connect(self._on_shape_data_changed)
+
     def _connect_drag_and_drop(self):
         """
         Sets up mouse press/release events for drag-and-drop based shape tools.
@@ -258,6 +262,7 @@ class ShapeTimeTracker:
 
             if self._connected_shape_layer is not None:
                 self._connected_shape_layer.events.mode.disconnect(self._connected_shape_layer)
+                self._connected_shape_layer.events.data.disconnect(self._on_shape_data_changed)
                 self._connected_shape_layer = None
 
         except Exception as e:
@@ -278,14 +283,15 @@ class ShapeTimeTracker:
         if len(selected) != 1:
             return
 
-        object_id = len(current_layer.data) - 1
+        shape_index = next(iter(selected))
+        shape_obj = current_layer.data[shape_index]
+        shape_id = id(shape_obj)
 
         if current_layer not in self.timeMap:
             self.timeMap[current_layer] = {}
 
         list_times = [start_timestamp, stop_timestamp, object_time]
-        self.timeMap[current_layer][object_id] = list_times
-        print(self.timeMap)
+        self.timeMap[current_layer][shape_id] = list_times
 
     def get_time_map(self):
         """
@@ -295,3 +301,19 @@ class ShapeTimeTracker:
         dict: A dictionary mapping shape layers and object IDs to timing data.
         """
         return self.timeMap
+
+    def _on_shape_data_changed(self, event):
+        if self._connected_shape_layer not in self.timeMap:
+            return
+
+        current_shapes = self._connected_shape_layer.data
+        current_ids = set(id(shape) for shape in current_shapes)
+
+        layer_map = self.timeMap[self._connected_shape_layer]
+        stored_ids = set(layer_map.keys())
+
+        deleted_ids = stored_ids - current_ids
+        for sid in deleted_ids:
+            layer_map.pop(sid, None)
+
+
