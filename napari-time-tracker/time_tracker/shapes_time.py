@@ -1,4 +1,5 @@
 import napari
+import numpy as np
 from napari.utils.notifications import show_info
 from napari.layers.shapes._shapes_constants import Mode
 import time
@@ -56,6 +57,8 @@ class ShapeTimeTracker:
                 self._connect_click_based()
             case Mode.ADD_POLYGON_LASSO | Mode.ADD_PATH:
                 self._connect_dual_with_extension()
+            case Mode.SELECT:
+                pass
             case _:
                 show_info(f"Tool '{shape_layer_mode}' unsupported")
 
