@@ -66,7 +66,7 @@ class MouseTracker:
             delta = stop_time - self.last_move_time
             self.total_movement_time += delta
         self.movement_active = False
-        return stop_time
+        self.remember_stop = stop_time
 
     def start(self):
         """
@@ -82,8 +82,7 @@ class MouseTracker:
         Returns:
         float: The total amount of time (in seconds) the mouse was actively moving.
         """
-        if self.movement_active:
-            self.remember_stop = self._on_mouse_stop()
+        self._on_mouse_stop()
         if self._event_connection is not None:
             self.viewer.window.qt_viewer.canvas.events.mouse_move.disconnect(self._event_connection)
             self._event_connection = None

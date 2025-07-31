@@ -1,5 +1,7 @@
 import napari
 import numpy as np
+from PyQt5.QtCore import QTimer
+from napari.layers import Shapes
 from napari.utils.notifications import show_info
 from napari.layers.shapes._shapes_constants import Mode
 import time
@@ -21,6 +23,7 @@ class ShapeTimeTracker:
         Parameters:
         v: The Napari viewer instance.
         """
+
         self.viewer = v
         self.tracker = MouseTracker(self.viewer)
 
@@ -31,11 +34,14 @@ class ShapeTimeTracker:
         # Click-based implementation
         self._mouse_press_connection_click = None
         self._key_press_connection_click = None
+        self._last_click_time = 0
 
         # Combined/dual interaction (e.g., polygon lasso, path)
         self._dual_mouse_press_connection = None
         self._dual_mouse_release_connection = None
         self._dual_key_press_connection = None
+        self._dual_press_time = None
+        self._dual_click_count = 0
 
         self.tracker_running = False
         self.click_count = 0
@@ -46,7 +52,12 @@ class ShapeTimeTracker:
         """
         Connects event handlers based on the current shape layer and its active drawing mode.
         """
-        self._connected_shape_layer = list(self.viewer.layers.selection)[0]
+        sel = list(self.viewer.layers.selection)
+        if not sel or not isinstance(sel[0], Shapes):
+            # no shape layer selected → nothing to track
+            return
+
+        self._connected_shape_layer = sel[0]
         shape_layer_mode = Mode(self._connected_shape_layer.mode)
         self._connected_shape_layer.events.mode.connect(self._on_mode_change)
 
@@ -86,6 +97,10 @@ class ShapeTimeTracker:
         if self._key_press_connection_click is None:
             self._key_press_connection_click = canvas.events.key_press.connect(self._on_key_press)
 
+        if self._connected_shape_layer is not None:
+            self._connected_shape_layer.events.data.connect(self._on_shape_inserted)
+            self._previous_shape_count = len(self._connected_shape_layer.data)
+
     def _connect_dual_with_extension(self):
         """
         Sets up combined mouse/keyboard events for tools like polygon lasso or path
@@ -119,11 +134,21 @@ class ShapeTimeTracker:
 
     def _on_click(self, event):
         """
-        Starts the tracker on mouse click (click-based tools).
+        Starts tracking on mouse click for click-based shape tools.
         """
         if not self.tracker_running:
             self.tracker.start()
             self.tracker_running = True
+
+    def _on_shape_inserted(self, event):
+        """
+        Called when a new shape is inserted (Polygon, Polyline, etc.).
+        Stops tracking and saves time.
+        """
+        new_count = len(self._connected_shape_layer.data)
+        if self.tracker_running and new_count > self._previous_shape_count:
+            self.end_and_reconnect()
+        self._previous_shape_count = new_count
 
     def _on_key_press(self, event):
         """
@@ -136,8 +161,8 @@ class ShapeTimeTracker:
         """
         Starts tracking on the first click (dual-mode tools).
         """
-        if not self.tracker_running and self.click_count == 0:
-            self._press_time = time.time()
+        if not self.tracker_running and self._dual_click_count == 0:
+            self._dual_press_time = time.time()
             self.tracker.start()
             self.tracker_running = True
 
@@ -146,15 +171,15 @@ class ShapeTimeTracker:
         Handles both drag and click sequences for dual-mode tools.
         Detects whether the action was a click or a drag based on press duration.
         """
-        if self.tracker_running and self.click_count == 0:
+        if self.tracker_running and self._dual_click_count == 0:
             release_time = time.time()
-            press_duration = release_time - self._press_time
+            press_duration = release_time - self._dual_press_time
             if press_duration >= 0.3:
                 self.end_and_reconnect()  # drag detected
             else:
-                self.click_count = 1  # wait for second click
-        elif self.tracker_running and self.click_count == 1:
-            self.click_count = 0
+                self._dual_click_count = 1  # wait for second click
+        elif self.tracker_running and self._dual_click_count == 1:
+            self._dual_click_count = 0
             self.end_and_reconnect()
 
     def _on_dual_key(self, event):
@@ -162,7 +187,7 @@ class ShapeTimeTracker:
         Cancels the tracking on 'Escape' key for dual-mode tools.
         """
         if event.key == 'Escape' and self.tracker_running:
-            self.click_count = 0
+            self._dual_click_count = 0
             self.end_and_reconnect()
 
     def _on_dual_right_click(self, event):
@@ -181,7 +206,7 @@ class ShapeTimeTracker:
         self.disconnect_all()
         self.shape_connect()
 
-    def end_and_reconnect(self):
+    def end_and_reconnect(self, force=False):
         """
         Stops the tracker, saves timing data, resets state, and reconnects event handlers.
         """
@@ -210,6 +235,10 @@ class ShapeTimeTracker:
             if self._mouse_press_connection_click is not None:
                 canvas.events.mouse_press.disconnect(self._mouse_press_connection_click)
                 self._mouse_press_connection_click = None
+
+            if self._connected_shape_layer is not None:
+                self._connected_shape_layer.events.data.disconnect(self._on_shape_inserted)
+                self._connected_shape_layer = None
 
             if self._key_press_connection_click is not None:
                 canvas.events.key_press.disconnect(self._key_press_connection_click)
@@ -249,7 +278,7 @@ class ShapeTimeTracker:
         if len(selected) != 1:
             return
 
-        object_id = next(iter(selected))  # int, suitable as a dictionary key
+        object_id = len(current_layer.data) - 1
 
         if current_layer not in self.timeMap:
             self.timeMap[current_layer] = {}
