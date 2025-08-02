@@ -220,6 +220,7 @@ class ShapeTimeTracker:
         self.tracker_running = False
         self.disconnect_all()
         self.shape_connect()
+        print(self.timeMap)
 
     def disconnect_all(self):
         """
