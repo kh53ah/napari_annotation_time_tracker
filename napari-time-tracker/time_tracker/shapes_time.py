@@ -303,6 +303,16 @@ class ShapeTimeTracker:
         return self.timeMap
 
     def _on_shape_data_changed(self, event):
+        """
+        Callback for when the shape layer's data changes (e.g., shapes added, removed, or modified).
+
+        This method compares the current shapes in the layer to those stored in the timeMap.
+        If any shapes have been deleted (i.e., their IDs are no longer present), their corresponding
+        timing entries are removed from the timeMap to keep it in sync with the actual layer content.
+
+        Parameters:
+        event: The event object triggered by the shape layer's data change.
+        """
         if self._connected_shape_layer not in self.timeMap:
             return
 
