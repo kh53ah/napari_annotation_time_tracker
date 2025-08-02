@@ -161,27 +161,20 @@ class PointsTimeTracker:
         Args:
             t (float): The time duration (in seconds) taken to create the point
         """
-        # Get the currently selected layer (should be the points layer)
         current_layer = list(self.viewer.layers.selection)[0]
-
-        # Get the currently selected point(s)
         selected = current_layer.selected_data
 
-        # Only proceed if exactly one point is selected
         if len(selected) != 1:
             return
 
-        # Extract the point index (ID) from the selection
-        object_id = next(iter(selected))  # int, suitable as dictionary key
+        point_index = next(iter(selected))
+        point_obj = current_layer.data[point_index]
+        point_id = id(point_obj)
 
-        # Initialize layer entry in timeMap if it doesn't exist
         if current_layer not in self.timeMap:
             self.timeMap[current_layer] = {}
 
-        # Store the timing data: layer -> point_index -> creation_time
-        self.timeMap[current_layer][object_id] = t
-
-        # Debug output to show current timing data
+        self.timeMap[current_layer][point_id] = t
         print(self.timeMap)
 
     def get_time_map(self):
