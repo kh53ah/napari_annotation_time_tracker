@@ -19,7 +19,7 @@ from .points_time import PointsTimeTracker
 from .shapes_time import ShapeTimeTracker
 from .trigger_labels import LabelsStart
 from .total_time import TotalTimer
-from .pause_time import PauseTimeTracker
+from .pause_time import CanvasTimeTracker
 from .locked_viewer import set_editable_all_layers
 from .display_histogram import start_dash_app
 
@@ -33,7 +33,7 @@ class TimeTrackerWidget(QWidget):
         self.ltt = LabelsStart(self.viewer)
 
         self.global_timer = TotalTimer()
-        self.pause_timer = PauseTimeTracker(self.viewer)
+        self.pause_timer = CanvasTimeTracker(self.viewer)
         self._export_timer = QTimer(self)
         self._export_timer.setInterval(30_000)
         self._export_timer.timeout.connect(self._export_cycle)
@@ -233,13 +233,13 @@ class TimeTrackerWidget(QWidget):
 
     def _export_json(self, layer_svgs, layer_files, export_dir):
         self.global_timer.update_total_time_on_fly()
-        on_time = self.pause_timer.get_onImage()
-        off_time = self.pause_timer.get_offImage()
+        on_time = self.pause_timer.get_onCanvas()
+        off_time = self.pause_timer.get_offCanvas()
         data = {
             "timestamp": time.time(),
             "global_time_seconds": self.global_timer.get_total_time(),
-            "on_image_time_seconds": on_time,
-            "off_image_time_seconds": off_time,
+            "on_canvas_time_seconds": on_time,
+            "off_canvas_time_seconds": off_time,
             "per_layer_data": self.get_all_time_maps(),
             "layer_svgs": layer_svgs,
             "layer_files": layer_files,
@@ -295,10 +295,10 @@ class TimeTrackerWidget(QWidget):
                 layers = [ly for ly in self.viewer.layers if isinstance(ly, Labels)]
                 if idx < len(layers): self.ltt.timeMap[layers[idx]] = clean(t)
 
-            self.pause_timer.durations_on_image = data.get("on_image_time_seconds", 0)
-            self.pause_timer.durations_off_image = data.get("off_image_time_seconds", 0)
+            self.pause_timer.durations_on_canvas = data.get("on_canvas_time_seconds", 0)
+            self.pause_timer.durations_off_canvas = data.get("off_canvas_time_seconds", 0)
 
-            show_info("Annotation layers, time maps, and on/off-image durations restored.")
+            show_info("Annotation layers, time maps, and on/off-canvas durations restored.")
 
     def show_histogram(self):
         start_dash_app(self._time_tracker_dir)
