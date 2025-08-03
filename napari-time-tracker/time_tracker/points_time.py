@@ -3,7 +3,6 @@ import napari
 import napari.viewer
 from napari.layers import Image
 from napari.utils.notifications import show_info
-import numpy as np
 
 
 class PointsTimeTracker:
@@ -13,16 +12,13 @@ class PointsTimeTracker:
     This tracker measures the time taken to create individual point annotations,
     from the moment a mouse drag begins until a new point is added to the layer.
     The timing data is stored in a nested dictionary structure mapping layers
-    to point object IDs and their corresponding creation times.
-
-    Handles point deletions by using coordinate-based fallback to preserve timing data.
+    to point indices and their corresponding creation times.
 
     Workflow:
     1. User selects a points layer and calls start()
     2. Mouse drag events trigger timing start
     3. When new points are added, timing stops and duration is recorded
-    4. When points are deleted, coordinates are compared to identify deleted points
-    5. Timing data for deleted points is removed from the map
+    4. Times are mapped to specific point indices for later retrieval
     """
 
     def __init__(self, v):
@@ -41,14 +37,9 @@ class PointsTimeTracker:
         # Timing variables
         self.start_time = None  # Timestamp when mouse drag begins
         self.points_array_before = 0  # Number of points before current annotation
-        self.previous_points_data = None  # Store previous point coordinates
 
-        # Data storage: {layer: {point_object_id: creation_time}}
-        # Note: Using object IDs has limitations due to memory address instability
+        # Data storage: {layer: {point_index: creation_time}}
         self.timeMap = {}
-
-        # Additional storage to help with object ID instability
-        self.coordinate_to_timing = {}  # Fallback mapping: {layer: {coordinate_tuple: timing}}
 
     def get_current_points_layer(self, viewer):
         """
@@ -95,96 +86,21 @@ class PointsTimeTracker:
             self.start_time = time.time()
         yield  # Required for napari callback generators
 
-    def find_deleted_points(self, old_points, new_points):
-        """
-        Compare old and new point arrays to find which points were deleted.
-
-        Args:
-            old_points (np.ndarray): Previous point coordinates (self.previous_points_data)
-            new_points (np.ndarray): Current point coordinates
-
-        Returns:
-            list: Indices of points that were deleted from old_points
-        """
-        if len(old_points) == 0:
-            return []
-
-        if len(new_points) == 0:
-            # All points were deleted
-            return list(range(len(old_points)))
-
-        deleted_indices = []
-
-        # For each old point, check if it still exists in new points
-        for old_idx, old_point in enumerate(old_points):
-            point_still_exists = False
-
-            # Compare with all new points (allowing for small floating point differences)
-            for new_point in new_points:
-                if np.allclose(old_point, new_point, rtol=1e-9, atol=1e-9):
-                    point_still_exists = True
-                    break
-
-            if not point_still_exists:
-                deleted_indices.append(old_idx)
-
-        return deleted_indices
-
-    def handle_deletion_with_object_ids(self, deleted_indices):
-        """
-        Handle point deletion when using object IDs as keys.
-        Since object IDs change after array modifications, we use coordinate-based fallback.
-
-        Args:
-            deleted_indices (list): Indices of points that were deleted
-        """
-        if self.points_layer not in self.coordinate_to_timing:
-            return
-
-        # Remove timing data for deleted coordinates
-        deleted_coordinates = set()
-        if self.previous_points_data is not None:
-            for idx in deleted_indices:
-                if idx < len(self.previous_points_data):
-                    coord_tuple = tuple(self.previous_points_data[idx])
-                    deleted_coordinates.add(coord_tuple)
-
-        # Clean up coordinate-based timing
-        current_coord_timing = self.coordinate_to_timing[self.points_layer].copy()
-        for coord_tuple in deleted_coordinates:
-            if coord_tuple in current_coord_timing:
-                del current_coord_timing[coord_tuple]
-        self.coordinate_to_timing[self.points_layer] = current_coord_timing
-
-        # Rebuild object ID mapping from coordinate mapping
-        new_timing = {}
-        if len(self.points_layer.data) > 0:
-            for idx, point in enumerate(self.points_layer.data):
-                coord_tuple = tuple(point)
-                if coord_tuple in current_coord_timing:
-                    point_obj = self.points_layer.data[idx]
-                    new_object_id = id(point_obj)
-                    new_timing[new_object_id] = current_coord_timing[coord_tuple]
-
-        # Update the object ID timing map
-        self.timeMap[self.points_layer] = new_timing
-
     def on_points_change(self, event):
         """
         Callback for when points data changes in the tracked layer.
 
         This method is triggered whenever the points array is modified.
-        It handles both point additions and deletions by comparing
-        point coordinates to detect what changed.
+        If a new point was added and timing was active, it calculates
+        the duration, selects the new point, and stores the timing data.
 
         Args:
             event: Napari event object containing information about the data change
         """
-        # Get current points data
-        current_points = self.points_layer.data.copy() if len(self.points_layer.data) > 0 else np.array([])
-        points_array_after = len(current_points)
+        # Get current number of points in the layer
+        points_array_after = len(self.points_layer.data)
 
-        # Handle point addition
+        # Check if a new point was added and timing is active
         if points_array_after > self.points_array_before and self.start_time is not None:
             # Calculate how long it took to create this point
             duration = time.time() - self.start_time
@@ -197,27 +113,7 @@ class PointsTimeTracker:
 
             # Update state for next annotation
             self.points_array_before = points_array_after
-            self.previous_points_data = current_points.copy()
             self.start_time = None  # Reset timing
-
-        # Handle point deletion
-        elif points_array_after < self.points_array_before:
-            if self.previous_points_data is not None:
-                # Find which points were deleted by comparing coordinates
-                deleted_indices = self.find_deleted_points(self.previous_points_data, current_points)
-
-                if deleted_indices:
-                    # Update timing map to handle object ID changes after deletion
-                    self.handle_deletion_with_object_ids(deleted_indices)
-
-            # Update state
-            self.points_array_before = points_array_after
-            self.previous_points_data = current_points.copy()
-
-        # Handle case where number of points stayed the same (point moved)
-        elif points_array_after == self.points_array_before:
-            # Just update the stored points data
-            self.previous_points_data = current_points.copy()
 
     def start(self):
         """
@@ -226,9 +122,8 @@ class PointsTimeTracker:
         This method:
         1. Finds the currently selected points layer
         2. Records the initial number of points
-        3. Stores initial point coordinates
-        4. Connects the necessary event callbacks
-        5. Shows user feedback about the tracking state
+        3. Connects the necessary event callbacks
+        4. Shows user feedback about the tracking state
 
         Returns:
             None: Exits early if no points layer is selected
@@ -241,11 +136,11 @@ class PointsTimeTracker:
 
         # Validate that a points layer is available
         if self.points_layer is None:
+            show_info("No points layer selected!")
             return
 
-        # Record initial state (number of existing points and their coordinates)
+        # Record initial state (number of existing points)
         self.points_array_before = len(self.points_layer.data)
-        self.previous_points_data = self.points_layer.data.copy() if len(self.points_layer.data) > 0 else np.array([])
 
         # Connect event callbacks for tracking
         # Mouse drag callback to detect annotation start
@@ -258,7 +153,7 @@ class PointsTimeTracker:
         Store the annotation time for a specific point in the current layer.
 
         This method creates a nested dictionary structure that maps:
-        - Layer -> Point Object ID -> Creation Time
+        - Layer -> Point Index -> Creation Time
 
         The timing is only stored if exactly one point is selected,
         ensuring accurate mapping to the correct point.
@@ -266,28 +161,27 @@ class PointsTimeTracker:
         Args:
             t (float): The time duration (in seconds) taken to create the point
         """
+        # Get the currently selected layer (should be the points layer)
         current_layer = list(self.viewer.layers.selection)[0]
+
+        # Get the currently selected point(s)
         selected = current_layer.selected_data
 
+        # Only proceed if exactly one point is selected
         if len(selected) != 1:
             return
 
-        point_index = next(iter(selected))
-        point_obj = current_layer.data[point_index]
-        point_id = id(point_obj)
+        # Extract the point index (ID) from the selection
+        object_id = next(iter(selected))  # int, suitable as dictionary key
 
+        # Initialize layer entry in timeMap if it doesn't exist
         if current_layer not in self.timeMap:
             self.timeMap[current_layer] = {}
 
-        # Store timing with object ID
-        self.timeMap[current_layer][point_id] = t
+        # Store the timing data: layer -> point_index -> creation_time
+        self.timeMap[current_layer][object_id] = t
 
-        # Also store coordinate-based mapping as backup
-        if current_layer not in self.coordinate_to_timing:
-            self.coordinate_to_timing[current_layer] = {}
-        coordinate_tuple = tuple(point_obj)
-        self.coordinate_to_timing[current_layer][coordinate_tuple] = t
-
+        # Debug output to show current timing data
         print(self.timeMap)
 
     def get_time_map(self):
@@ -296,28 +190,10 @@ class PointsTimeTracker:
 
         Returns:
             dict: Nested dictionary with structure:
-                  {layer: {point_object_id: creation_time}}
+                  {layer: {point_index: creation_time}}
                   where:
                   - layer: napari.layers.Points instance
-                  - point_object_id: int (memory address/ID of the point object)
+                  - point_index: int (index of the point in the layer)
                   - creation_time: float (seconds taken to create the point)
-
-        Note: Object IDs may not be stable across array operations.
-              Use get_coordinate_timing_map() for more reliable coordinate-based mapping.
         """
         return self.timeMap
-
-    def get_coordinate_timing_map(self):
-        """
-        Retrieve timing data mapped by coordinates instead of object IDs.
-        This provides a more stable mapping that survives array operations.
-
-        Returns:
-            dict: Nested dictionary with structure:
-                  {layer: {coordinate_tuple: creation_time}}
-                  where:
-                  - layer: napari.layers.Points instance
-                  - coordinate_tuple: tuple of point coordinates
-                  - creation_time: float (seconds taken to create the point)
-        """
-        return self.coordinate_to_timing
