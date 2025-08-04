@@ -1,4 +1,5 @@
 # time_tracker_widget.py
+import re
 import time
 import os
 import json
