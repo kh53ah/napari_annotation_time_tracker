@@ -128,6 +128,15 @@ class TimeTrackerWidget(QWidget):
 
 
     def on_save_clicked(self):
+        """
+        Handle the 'Save' button click event.
+
+        Stops the global timing if running, resets UI controls,
+        disables editing on all layers, and prompts the user
+        to select a directory. Exports SVGs, data files, and JSON
+        manifest to both the selected directory and the internal
+        tracker directory.
+        """
         if self.global_timer.is_running:
             self.global_timer.stop_total_time()
             self.start_stop_btn.setText("Start")
@@ -145,11 +154,28 @@ class TimeTrackerWidget(QWidget):
         show_info(f"Saved data to: {user_dir} and {self._time_tracker_dir}")
 
     def _export_cycle(self):
+        """
+        Perform a periodic export cycle.
+
+        Exports SVGs and data files to the internal tracker directory
+        and updates the JSON manifest accordingly.
+        """
         svgs = self._export_svgs(self._time_tracker_dir)
         files = self._export_data_files(self._time_tracker_dir)
         self._export_json(svgs, files,self._time_tracker_dir)
 
     def get_all_time_maps(self):
+        """
+        Aggregate and format timing data for all tracked layers.
+
+        Returns
+         -------
+            dict
+                A dictionary with three keys ('points', 'shapes', 'labels'), each
+                mapping layer names to their respective timing statistics. Simple
+                maps yield {layer_name: {object_id: time_seconds}} and triple maps
+                yield {layer_name: {object_id: [start, end, duration]}}.
+        """
         points_raw = self.ptt.get_time_map()
         shapes_raw = self.stt.get_time_map()
         labels_raw = self.ltt.get_time_map()
@@ -183,6 +209,19 @@ class TimeTrackerWidget(QWidget):
         }
 
     def _export_svgs(self, export_dir):
+        """
+        Export current viewer layers as SVG files.
+
+        Parameters
+        ----------
+            export_dir : str
+                Directory path to save generated SVG files.
+
+            Returns
+             -------
+            list of str
+                Filenames of the SVG files created for each non-image layer.
+        """
         svg_files = []
         os.makedirs(export_dir, exist_ok=True)
 
@@ -216,6 +255,19 @@ class TimeTrackerWidget(QWidget):
         return svg_files
 
     def _export_data_files(self, export_dir):
+        """
+        Export raw layer data as NumPy files.
+
+        Parameters
+        ----------
+            export_dir : str
+                Directory path to save the .npy data files.
+
+            Returns
+            -------
+            list of dict
+                Metadata entries for each data file, including type, name, and filename.
+        """
         data_files = []
         os.makedirs(export_dir, exist_ok=True)
 
@@ -243,6 +295,18 @@ class TimeTrackerWidget(QWidget):
         return data_files
 
     def _export_json(self, layer_svgs, layer_files, export_dir):
+        """
+        Write a JSON manifest summarizing exported files and timing data.
+
+        Parameters
+         ----------
+            layer_svgs : list of str
+                Filenames of exported SVG files.
+            layer_files : list of dict
+                Metadata entries for exported data files.
+            export_dir : str
+                Directory path where the JSON manifest will be written.
+        """
         self.global_timer.update_total_time_on_fly()
         on_time = self.pause_timer.get_onCanvas()
         off_time = self.pause_timer.get_offCanvas()
@@ -262,7 +326,12 @@ class TimeTrackerWidget(QWidget):
         show_info(f"Exported JSON + SVGs + data files to {path}")
 
     def load_json(self):
-        """Load raw layer data and timing from JSON manifest."""
+        """
+        Load and restore layer data and timing from a JSON manifest.
+
+        Opens a file dialog to select the JSON file, removes existing annotation layers,
+        recreates layers from saved data, and restores timing maps and on/off-canvas durations.
+        """
         path, _ = QFileDialog.getOpenFileName(None, "Open time_tracker_data.json",
                                                   self._time_tracker_dir, "JSON files (*.json)")
         if not path:
