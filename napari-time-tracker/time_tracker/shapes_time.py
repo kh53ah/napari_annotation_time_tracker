@@ -54,7 +54,6 @@ class ShapeTimeTracker:
         """
         sel = list(self.viewer.layers.selection)
         if not sel or not isinstance(sel[0], Shapes):
-            # no shape layer selected → nothing to track
             return
 
         self._connected_shape_layer = sel[0]
