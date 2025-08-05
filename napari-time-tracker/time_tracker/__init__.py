@@ -1,4 +1,5 @@
 # time_tracker_widget.py
+import re
 import time
 import os
 import json
@@ -18,7 +19,7 @@ from .points_time import PointsTimeTracker
 from .shapes_time import ShapeTimeTracker
 from .trigger_labels import LabelsStart
 from .total_time import TotalTimer
-from .pause_time import PauseTimeTracker
+from .pause_time import CanvasTimeTracker
 from .locked_viewer import set_editable_all_layers
 from .display_histogram import start_dash_app
 
@@ -32,7 +33,7 @@ class TimeTrackerWidget(QWidget):
         self.ltt = LabelsStart(self.viewer)
 
         self.global_timer = TotalTimer()
-        self.pause_timer = PauseTimeTracker(self.viewer)
+        self.pause_timer = CanvasTimeTracker(self.viewer)
         self._export_timer = QTimer(self)
         self._export_timer.setInterval(30_000)
         self._export_timer.timeout.connect(self._export_cycle)
@@ -127,8 +128,21 @@ class TimeTrackerWidget(QWidget):
 
 
     def on_save_clicked(self):
+        """
+        Handle the 'Save' button click event.
+
+        Stops the global timing if running, resets UI controls,
+        disables editing on all layers, and prompts the user
+        to select a directory. Exports SVGs, data files, and JSON
+        manifest to both the selected directory and the internal
+        tracker directory.
+        """
         if self.global_timer.is_running:
             self.global_timer.stop_total_time()
+            self.start_stop_btn.setText("Start")
+            if self._export_timer.isActive():
+                self._export_timer.stop()
+            set_editable_all_layers(self.viewer, False)
         user_dir = QFileDialog.getExistingDirectory(self, "Select Save Directory")
         if not user_dir:
             return
@@ -140,11 +154,28 @@ class TimeTrackerWidget(QWidget):
         show_info(f"Saved data to: {user_dir} and {self._time_tracker_dir}")
 
     def _export_cycle(self):
+        """
+        Perform a periodic export cycle.
+
+        Exports SVGs and data files to the internal tracker directory
+        and updates the JSON manifest accordingly.
+        """
         svgs = self._export_svgs(self._time_tracker_dir)
         files = self._export_data_files(self._time_tracker_dir)
         self._export_json(svgs, files,self._time_tracker_dir)
 
     def get_all_time_maps(self):
+        """
+        Aggregate and format timing data for all tracked layers.
+
+        Returns
+         -------
+            dict
+                A dictionary with three keys ('points', 'shapes', 'labels'), each
+                mapping layer names to their respective timing statistics. Simple
+                maps yield {layer_name: {object_id: time_seconds}} and triple maps
+                yield {layer_name: {object_id: [start, end, duration]}}.
+        """
         points_raw = self.ptt.get_time_map()
         shapes_raw = self.stt.get_time_map()
         labels_raw = self.ltt.get_time_map()
@@ -178,6 +209,19 @@ class TimeTrackerWidget(QWidget):
         }
 
     def _export_svgs(self, export_dir):
+        """
+        Export current viewer layers as SVG files.
+
+        Parameters
+        ----------
+            export_dir : str
+                Directory path to save generated SVG files.
+
+            Returns
+             -------
+            list of str
+                Filenames of the SVG files created for each non-image layer.
+        """
         svg_files = []
         os.makedirs(export_dir, exist_ok=True)
 
@@ -211,34 +255,66 @@ class TimeTrackerWidget(QWidget):
         return svg_files
 
     def _export_data_files(self, export_dir):
+        """
+        Export raw layer data as NumPy files.
+
+        Parameters
+        ----------
+            export_dir : str
+                Directory path to save the .npy data files.
+
+            Returns
+            -------
+            list of dict
+                Metadata entries for each data file, including type, name, and filename.
+        """
         data_files = []
         os.makedirs(export_dir, exist_ok=True)
 
         for layer in self.viewer.layers:
             if isinstance(layer, Image):
                 continue
+
             name = layer.name or layer.__class__.__name__
             file_name = f"{name}_{id(layer)}.npy"
             file_path = os.path.join(export_dir, file_name)
+
             if isinstance(layer, Shapes):
-                np.save(file_path, layer.data, allow_pickle=True)
+                # wrap list-of-arrays into a 1-D object array so np.save can handle varying shapes
+                obj_arr = np.array(layer.data, dtype=object)
+                np.save(file_path, obj_arr, allow_pickle=True)
             else:
                 np.save(file_path, layer.data)
-            entry = {"type": layer.__class__.__name__, "name": name, "file": file_name}
-            if isinstance(layer, Shapes):
-                entry["shape_type"] = list(layer.shape_type)
+
+            entry = {
+                "type": layer.__class__.__name__,
+                "name": name,
+                "file": file_name,
+            }
             data_files.append(entry)
         return data_files
 
     def _export_json(self, layer_svgs, layer_files, export_dir):
+        """
+        Write a JSON manifest summarizing exported files and timing data.
+
+        Parameters
+         ----------
+            layer_svgs : list of str
+                Filenames of exported SVG files.
+            layer_files : list of dict
+                Metadata entries for exported data files.
+            export_dir : str
+                Directory path where the JSON manifest will be written.
+        """
         self.global_timer.update_total_time_on_fly()
-        on_time = self.pause_timer.get_onImage()
-        off_time = self.pause_timer.get_offImage()
+        on_time = self.pause_timer.get_onCanvas()
+        off_time = self.pause_timer.get_offCanvas()
         data = {
             "timestamp": time.time(),
             "global_time_seconds": self.global_timer.get_total_time(),
-            "on_image_time_seconds": on_time,
-            "off_image_time_seconds": off_time,
+            "on_canvas_time_seconds": on_time,
+            "off_canvas_time_seconds": off_time,
             "per_layer_data": self.get_all_time_maps(),
             "layer_svgs": layer_svgs,
             "layer_files": layer_files,
@@ -250,7 +326,12 @@ class TimeTrackerWidget(QWidget):
         show_info(f"Exported JSON + SVGs + data files to {path}")
 
     def load_json(self):
-        """Load raw layer data and timing from JSON manifest."""
+        """
+        Load and restore layer data and timing from a JSON manifest.
+
+        Opens a file dialog to select the JSON file, removes existing annotation layers,
+        recreates layers from saved data, and restores timing maps and on/off-canvas durations.
+        """
         path, _ = QFileDialog.getOpenFileName(None, "Open time_tracker_data.json",
                                                   self._time_tracker_dir, "JSON files (*.json)")
         if not path:
@@ -294,10 +375,10 @@ class TimeTrackerWidget(QWidget):
                 layers = [ly for ly in self.viewer.layers if isinstance(ly, Labels)]
                 if idx < len(layers): self.ltt.timeMap[layers[idx]] = clean(t)
 
-            self.pause_timer.durations_on_image = data.get("on_image_time_seconds", 0)
-            self.pause_timer.durations_off_image = data.get("off_image_time_seconds", 0)
+            self.pause_timer.durations_on_canvas = data.get("on_canvas_time_seconds", 0)
+            self.pause_timer.durations_off_canvas = data.get("off_canvas_time_seconds", 0)
 
-            show_info("Annotation layers, time maps, and on/off-image durations restored.")
+            show_info("Annotation layers, time maps, and on/off-canvas durations restored.")
 
     def show_histogram(self):
         start_dash_app(self._time_tracker_dir)
