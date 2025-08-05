@@ -130,6 +130,10 @@ class TimeTrackerWidget(QWidget):
     def on_save_clicked(self):
         if self.global_timer.is_running:
             self.global_timer.stop_total_time()
+            self.start_stop_btn.setText("Start")
+            if self._export_timer.isActive():
+                self._export_timer.stop()
+            set_editable_all_layers(self.viewer, False)
         user_dir = QFileDialog.getExistingDirectory(self, "Select Save Directory")
         if not user_dir:
             return
@@ -218,16 +222,23 @@ class TimeTrackerWidget(QWidget):
         for layer in self.viewer.layers:
             if isinstance(layer, Image):
                 continue
+
             name = layer.name or layer.__class__.__name__
             file_name = f"{name}_{id(layer)}.npy"
             file_path = os.path.join(export_dir, file_name)
+
             if isinstance(layer, Shapes):
-                np.save(file_path, layer.data, allow_pickle=True)
+                # wrap list-of-arrays into a 1-D object array so np.save can handle varying shapes
+                obj_arr = np.array(layer.data, dtype=object)
+                np.save(file_path, obj_arr, allow_pickle=True)
             else:
                 np.save(file_path, layer.data)
-            entry = {"type": layer.__class__.__name__, "name": name, "file": file_name}
-            if isinstance(layer, Shapes):
-                entry["shape_type"] = list(layer.shape_type)
+
+            entry = {
+                "type": layer.__class__.__name__,
+                "name": name,
+                "file": file_name,
+            }
             data_files.append(entry)
         return data_files
 
