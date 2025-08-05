@@ -43,7 +43,6 @@ class ShapeTimeTracker:
         self._dual_press_time = None
         self._dual_click_count = 0
 
-        # Other Variables
         self.tracker_running = False
         self.click_count = 0
         self.timeMap = {}
