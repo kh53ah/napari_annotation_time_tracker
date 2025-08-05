@@ -33,6 +33,12 @@ class ShapeTimeTracker:
 
     # main methode for starting the shape layer tracking
     def shape_connect(self):
+        """
+        Connects event handlers based on the current shape layer and its active drawing mode.
+        """
+        sel = list(self.viewer.layers.selection)
+        if not sel or not isinstance(sel[0], Shapes):
+            return
 
         self._connected_shape_layer = list(self.viewer.layers.selection)[0]
         shape_layer_mode = Mode(self._connected_shape_layer.mode)
