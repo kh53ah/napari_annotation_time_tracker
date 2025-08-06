@@ -1,5 +1,3 @@
-import datetime
-
 import dash
 from dash import dcc, html, Input, Output
 import plotly.express as px
@@ -73,7 +71,6 @@ def start_dash_app(path):
                 values = all_values
             else:
                 values = []
-            print(f"Selected layer: {selected}, Values: {values}")
 
             df = pd.DataFrame({"time": values})
             fig = px.histogram(df, x='time', nbins=20,

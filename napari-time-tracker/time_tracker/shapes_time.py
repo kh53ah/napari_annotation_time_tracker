@@ -73,8 +73,7 @@ class ShapeTimeTracker:
                 show_info(f"Tool '{shape_layer_mode}' unsupported")
 
         if self._connected_shape_layer is not None:
-            # schon verbunden mit anderen Events
-            self._connected_shape_layer.events.data.connect(self._on_shape_data_changed)
+            self._connected_shape_layer.events.data.connect(self._on_shapes_removed)
 
     def _connect_drag_and_drop(self):
         """
@@ -219,6 +218,7 @@ class ShapeTimeTracker:
         self.tracker_running = False
         self.disconnect_all()
         self.shape_connect()
+        print(self.timeMap)
 
     def disconnect_all(self):
         """
@@ -301,28 +301,9 @@ class ShapeTimeTracker:
         """
         return self.timeMap
 
-    def _on_shape_data_changed(self, event):
-        """
-        Callback for when the shape layer's data changes (e.g., shapes added, removed, or modified).
+    def _on_shapes_removed(self, event):
+        pass
 
-        This method compares the current shapes in the layer to those stored in the timeMap.
-        If any shapes have been deleted (i.e., their IDs are no longer present), their corresponding
-        timing entries are removed from the timeMap to keep it in sync with the actual layer content.
 
-        Parameters:
-        event: The event object triggered by the shape layer's data change.
-        """
-        if self._connected_shape_layer not in self.timeMap:
-            return
-
-        current_shapes = self._connected_shape_layer.data
-        current_ids = set(id(shape) for shape in current_shapes)
-
-        layer_map = self.timeMap[self._connected_shape_layer]
-        stored_ids = set(layer_map.keys())
-
-        deleted_ids = stored_ids - current_ids
-        for sid in deleted_ids:
-            layer_map.pop(sid, None)
 
 
