@@ -353,8 +353,6 @@ class ShapeTimeTracker:
         if layer_map == {}:
             del self.timeMap[layer]
 
-        print(self.timeMap)
-
 
 
 
