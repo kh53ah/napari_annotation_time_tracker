@@ -24,7 +24,8 @@ class LabelTimeTracker:
     def start(self, label_id):
         """begin timing on a new session on a label
         Args:
-        label_id(int): The identifier of the label being drawn / erased."""
+        label_id(int): The identifier of the label being drawn / erased.
+        """
         if not self.active and label_id is not None:
             self.active = True
             self.current_label = label_id
