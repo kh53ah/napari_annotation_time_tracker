@@ -1,5 +1,4 @@
 import time
-from napari.viewer import Viewer
 from qtpy.QtCore import QTimer
 
 
@@ -15,8 +14,6 @@ class MouseTracker:
 
     def _on_mouse_move(self, event):
         start_time = time.time()
-        if self.remember_start is None:
-            self.remember_start = start_time
 
         # Start Bewegungsphase
         if not self.movement_active:
@@ -44,10 +41,11 @@ class MouseTracker:
     def start(self):
         if self._event_connection is None:
             self._event_connection = self.viewer.window.qt_viewer.canvas.events.mouse_move.connect(self._on_mouse_move)
+        if self.remember_start is None:
+            self.remember_start = time.time()
 
     def stop(self):
-        if self.movement_active:
-            self.remember_stop = self._on_mouse_stop()
+        self.remember_stop = self._on_mouse_stop()
         if self._event_connection is not None:
             self.viewer.window.qt_viewer.canvas.events.mouse_move.disconnect(self._event_connection)
             self._event_connection = None
