@@ -73,7 +73,7 @@ class ShapeTimeTracker:
                 show_info(f"Tool '{shape_layer_mode}' unsupported")
 
         if self._connected_shape_layer is not None:
-            self._connected_shape_layer.events.data.connect(self._on_shapes_removed)
+            self.viewer.window.qt_viewer.canvas.events.key_press.connect(self._on_key_delete_press)
 
     def _connect_drag_and_drop(self):
         """
@@ -204,7 +204,6 @@ class ShapeTimeTracker:
         """
         Handles tool/mode changes in the shape layer by reconnecting appropriate handlers.
         """
-        print(self.timeMap)
         self.disconnect_all()
         self.shape_connect()
 
@@ -261,7 +260,7 @@ class ShapeTimeTracker:
 
             if self._connected_shape_layer is not None:
                 self._connected_shape_layer.events.mode.disconnect(self._connected_shape_layer)
-                self._connected_shape_layer.events.data.disconnect(self._on_shape_data_changed)
+                self.viewer.window.qt_viewer.canvas.events.key_press.disconnect(self._on_key_delete_press)
                 self._connected_shape_layer = None
 
         except Exception as e:
@@ -301,8 +300,61 @@ class ShapeTimeTracker:
         """
         return self.timeMap
 
-    def _on_shapes_removed(self, event):
-        pass
+    def _on_key_delete_press(self, event):
+        """
+        Handles key press events for deletion or cancellation actions.
+        - If the 'Backspace' or 'Delete' key is pressed, it triggers the removal
+          of time tracking data for the currently selected shapes.
+        - If the 'Escape' key is pressed, it cancels the current tracking session
+          and resets the event connections.
+
+        Parameters:
+        event (KeyEvent): The key event triggered by the user.
+        """
+        if event.key in {'Backspace', 'Delete'}:
+            self.remove_shape_time(event.key)
+        elif event.key == 'Escape':
+            self.end_and_reconnect()
+
+    def remove_shape_time(self, key):
+        """
+        Removes the time mapping of the currently selected shapes in the connected shape layer,
+        typically triggered by a delete/backspace key press.
+
+        Parameters:
+        key (str): The key that triggered this method, e.g., 'Delete' or 'Backspace'.
+        """
+        if self._connected_shape_layer is None:
+            return
+
+        selected = self._connected_shape_layer.selected_data
+
+        if not selected:
+            return
+
+        layer = self._connected_shape_layer
+        layer_map = self.timeMap.get(layer, {})
+
+        to_remove_ids = []
+
+        for index in selected:
+            try:
+                shape_data = layer.data[index]
+                shape_id = id(shape_data)
+                to_remove_ids.append(shape_id)
+            except IndexError:
+                continue
+
+        for sid in to_remove_ids:
+            if sid in layer_map:
+                del layer_map[sid]
+
+        # Clean up empty dict
+        if layer_map == {}:
+            del self.timeMap[layer]
+
+        print(self.timeMap)
+
 
 
 
