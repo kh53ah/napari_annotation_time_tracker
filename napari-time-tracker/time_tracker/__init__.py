@@ -333,58 +333,127 @@ class TimeTrackerWidget(QWidget):
         Opens a file dialog to select the JSON file, removes existing annotation layers,
         recreates layers from saved data, and restores timing maps and on/off-canvas durations.
         """
-        path, _ = QFileDialog.getOpenFileName(None, "Open time_tracker_data.json",
-                                                  self._time_tracker_dir, "JSON files (*.json)")
+        path, _ = QFileDialog.getOpenFileName(
+            None,
+            "Open time_tracker_data.json",
+            self._time_tracker_dir,
+            "JSON files (*.json)"
+        )
         if not path:
             return
+
+        # 1) Read JSON
         with open(path) as f:
             data = json.load(f)
+
+        # 2) Remove any existing annotation layers
         from napari.layers import Image
         for layer in list(self.viewer.layers):
             if not isinstance(layer, Image):
                 self.viewer.layers.remove(layer)
+
+        # 3) Re-create each saved layer
+        from napari.layers import Shapes, Points, Labels
         for entry in data.get("layer_files", []):
-            ltype = entry['type']
-            name = entry['name']
-            file_name = entry['file']
+            ltype = entry["type"]
+            name = entry["name"]
+            file_name = entry["file"]
             file_path = os.path.join(self._time_tracker_dir, file_name)
+
             if not os.path.exists(file_path):
                 show_info(f"Layer file missing: {file_name}")
                 continue
+
             arr = np.load(file_path, allow_pickle=True)
-            if ltype == 'Shapes':
+
+            if ltype == "Shapes":
                 shapes = arr.tolist()
-                # Either save a shape_type list, or default them all to "polygon"
                 shape_types = entry.get("shape_type", ["polygon"] * len(shapes))
                 self.viewer.add_shapes(
                     shapes,
                     name=name,
                     shape_type=shape_types,
                 )
-            elif ltype == 'Points':
-                self.viewer.add_points(arr, name=name)
-            elif ltype == 'Labels':
-                self.viewer.add_labels(arr, name=name)
 
-            def clean(raw):
-                return {int(k): raw[k] if isinstance(raw[k], (list, tuple)) else float(raw[k]) for k in raw}
-            self.ptt.timeMap.clear()
-            for idx, t in enumerate(data.get("per_layer_data", {}).get("points", {}).values()):
-                layers = [ly for ly in self.viewer.layers if isinstance(ly, Points)]
-                if idx < len(layers): self.ptt.timeMap[layers[idx]] = clean(t)
-            self.stt.timeMap.clear()
-            for idx, t in enumerate(data.get("per_layer_data", {}).get("shapes", {}).values()):
-                layers = [ly for ly in self.viewer.layers if isinstance(ly, Shapes)]
-                if idx < len(layers): self.stt.timeMap[layers[idx]] = clean(t)
-            self.ltt.timeMap.clear()
-            for idx, t in enumerate(data.get("per_layer_data", {}).get("labels", {}).values()):
-                layers = [ly for ly in self.viewer.layers if isinstance(ly, Labels)]
-                if idx < len(layers): self.ltt.timeMap[layers[idx]] = clean(t)
+            elif ltype == "Points":
+                pts = np.asarray(arr)
+                self.viewer.add_points(pts, name=name)
 
-            self.pause_timer.durations_on_canvas = data.get("on_canvas_time_seconds", 0)
-            self.pause_timer.durations_off_canvas = data.get("off_canvas_time_seconds", 0)
+            elif ltype == "Labels":
+                lbl = np.asarray(arr)
+                self.viewer.add_labels(lbl, name=name)
 
-            show_info("Annotation layers, time maps, and on/off-canvas durations restored.")
+        # 4) Restore each timeMap in one pass
+        def clean(raw):
+            return {
+                int(k): raw[k] if isinstance(raw[k], (list, tuple)) else float(raw[k])
+                for k in raw
+            }
+
+        # Points
+        self.ptt.timeMap.clear()
+        for idx, t in enumerate(data.get("per_layer_data", {}).get("points", {}).values()):
+            pts_layers = [ly for ly in self.viewer.layers if isinstance(ly, Points)]
+            if idx < len(pts_layers):
+                self.ptt.timeMap[pts_layers[idx]] = clean(t)
+
+        # Shapes
+        self.stt.timeMap.clear()
+        for idx, t in enumerate(data.get("per_layer_data", {}).get("shapes", {}).values()):
+            shp_layers = [ly for ly in self.viewer.layers if isinstance(ly, Shapes)]
+            if idx < len(shp_layers):
+                self.stt.timeMap[shp_layers[idx]] = clean(t)
+
+        # Labels
+        self.ltt.timeMap.clear()
+        for idx, t in enumerate(data.get("per_layer_data", {}).get("labels", {}).values()):
+            lbl_layers = [ly for ly in self.viewer.layers if isinstance(ly, Labels)]
+            if idx < len(lbl_layers):
+                self.ltt.timeMap[lbl_layers[idx]] = clean(t)
+
+        # 5) Restore pause‐timer durations
+        self.pause_timer.durations_on_canvas = data.get("on_canvas_time_seconds", 0)
+        self.pause_timer.durations_off_canvas = data.get("off_canvas_time_seconds", 0)
+
+        # 6) Re-connect trackers and prime their “previous count”
+        def select(layer):
+            sel = self.viewer.layers.selection
+            sel.clear()
+            sel.add(layer)
+
+        # Shapes tracker
+        shape_layers = [ly for ly in self.viewer.layers if isinstance(ly, Shapes)]
+        if shape_layers:
+            shp = shape_layers[0]
+            select(shp)
+            self.stt.disconnect_all()
+            self.stt._connected_shape_layer = shp
+            self.stt._previous_shape_count = len(shp.data)
+            self.stt.shape_connect()
+
+        # Points tracker
+        point_layers = [ly for ly in self.viewer.layers if isinstance(ly, Points)]
+        if point_layers:
+            pts = point_layers[0]
+            select(pts)
+            # assume your PointsTimeTracker has _previous_point_count
+            self.ptt._previous_point_count = len(pts.data)
+            self.ptt.start()
+
+        # Labels tracker
+        label_layers = [ly for ly in self.viewer.layers if isinstance(ly, Labels)]
+        if label_layers:
+            lbl = label_layers[0]
+            select(lbl)
+            # assume your LabelsStart has _previous_label_count
+            self.ltt._previous_label_count = len(lbl.data)
+            self.ltt.start()
+
+        # 7) Leave the Shapes layer selected so the user can continue drawing
+        if shape_layers:
+            select(shape_layers[0])
+
+        show_info("Annotation layers, time maps, and on/off-canvas durations restored.")
 
     def show_histogram(self):
         start_dash_app(self._time_tracker_dir)
