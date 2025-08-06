@@ -283,7 +283,11 @@ class TimeTrackerWidget(QWidget):
                 # wrap list-of-arrays into a 1-D object array so np.save can handle varying shapes
                 obj_arr = np.array(layer.data, dtype=object)
                 np.save(file_path, obj_arr, allow_pickle=True)
-                shape_type_list = [st.value for st in layer.shape_type]
+                shape_type_list = [
+                    st.value if hasattr(st, "value") else str(st)
+                    for st in layer.shape_type
+                ]
+
             else:
                 np.save(file_path, layer.data)
 
