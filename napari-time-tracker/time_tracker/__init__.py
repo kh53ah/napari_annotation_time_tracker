@@ -282,6 +282,9 @@ class TimeTrackerWidget(QWidget):
                 # wrap list-of-arrays into a 1-D object array so np.save can handle varying shapes
                 obj_arr = np.array(layer.data, dtype=object)
                 np.save(file_path, obj_arr, allow_pickle=True)
+                stypes = layer.shape_type
+                if isinstance(stypes, str):
+                               stypes = [stypes] * len(layer.data)
 
             else:
                 np.save(file_path, layer.data)
@@ -291,6 +294,8 @@ class TimeTrackerWidget(QWidget):
                 "name": name,
                 "file": file_name,
             }
+            if isinstance(layer, Shapes):
+                    entry["shape_type"] = stypes
             data_files.append(entry)
         return data_files
 
@@ -372,6 +377,15 @@ class TimeTrackerWidget(QWidget):
                     shapes,
                     name=name,
                     shape_type=shape_types,
+                )
+                shapes = arr.tolist()
+                shape_types = entry.get("shape_type", [])
+            if not shape_types:
+                shape_types = ['rectangle'] * len(shapes)
+                self.viewer.add_shapes(
+                data = shapes,
+                name = name,
+                shape_type = shape_types,
                 )
 
             elif ltype == "Points":
