@@ -380,8 +380,8 @@ class TimeTrackerWidget(QWidget):
                 )
                 shapes = arr.tolist()
                 shape_types = entry.get("shape_type", [])
-            if not shape_types:
-                shape_types = ['rectangle'] * len(shapes)
+                if not shape_types:
+                    shape_types = ['rectangle'] * len(shapes)
                 self.viewer.add_shapes(
                 data = shapes,
                 name = name,
